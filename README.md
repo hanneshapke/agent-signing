@@ -13,6 +13,13 @@ Sign and verify AI agent setups. Detects when tools, agents, or their configurat
 pip install agent-signing
 ```
 
+Optional dependencies for running the demos:
+
+```bash
+pip install agent-signing[demo-langchain]  # LangChain / LangGraph demos
+pip install agent-signing[demo-crewai]     # CrewAI demo
+```
+
 ## Quick start
 
 ```python
@@ -84,6 +91,37 @@ print(result.identity)  # {"sub": "user@example.com", "iss": "https://accounts.g
 
 Ed25519 and JWT can be combined for both cryptographic proof and identity context.
 
+## Signature files
+
+Write signatures to disk with `sign_to_file()` and verify with `verify_file()`. The file includes the signing timestamp, public key, hash, and signature.
+
+```python
+from agent_signing import AgentSigner, generate_keypair
+
+private_key, public_key = generate_keypair()
+
+signer = AgentSigner(private_key=private_key)
+signer.add_tool(my_tool)
+signer.sign_to_file("agent_signature.json")
+# Creates:
+# {
+#   "signed_at": "2025-06-15T12:00:00+00:00",
+#   "public_key": "abcd1234...",
+#   "hash": "842f9705...",
+#   "signature": "{\"hash\": ...}"
+# }
+
+# Later -- verify against the file
+verifier = AgentSigner(public_key=public_key)
+verifier.add_tool(my_tool)
+result = verifier.verify_file("agent_signature.json")
+assert result.valid
+
+# Inspect the file contents
+record = AgentSigner.load_signature_file("agent_signature.json")
+print(record["signed_at"], record["public_key"])
+```
+
 ## Framework support
 
 ### LangChain / LangGraph
@@ -94,7 +132,7 @@ Ed25519 and JWT can be combined for both cryptographic proof and identity contex
 
 ```python
 from langchain_core.tools import tool
-from langgraph.prebuilt import create_react_agent
+from langchain.agents import create_agent
 from agent_signing import AgentSigner, generate_keypair
 
 @tool
@@ -102,13 +140,12 @@ def search(query: str) -> str:
     """Search the web."""
     return "results"
 
-agent = create_react_agent(llm, [search])
+agent = create_agent(llm, [search])
 
 private_key, public_key = generate_keypair()
 signer = AgentSigner(private_key=private_key)
-signer.add_tool(search)
-signer.add_agent(agent)
-signature = signer.sign()
+signer.add_agent(agent)  # auto-discovers all tools bound to the agent
+signer.sign_to_file("agent_signature.json")
 ```
 
 ### CrewAI
@@ -138,7 +175,7 @@ private_key, public_key = generate_keypair()
 signer = AgentSigner(private_key=private_key)
 signer.add_tool(search)
 signer.add_agent(researcher)
-signature = signer.sign()
+signer.sign_to_file("agent_signature.json")
 ```
 
 ### Plain dicts
@@ -158,7 +195,7 @@ The signature covers the *semantic definition* of the agent setup, not the sourc
 |-----------|----------------|
 | **LangChain tool** | `name`, `description`, `args` (JSON schema) |
 | **CrewAI tool** | `name`, `description`, `args_schema` (JSON schema) |
-| **LangGraph agent** | tools discovered via `nodes["tools"].tools_by_name` |
+| **LangGraph agent** | tools discovered via `nodes["tools"]` |
 | **CrewAI agent** | `role`, `goal`, `backstory`, `llm`, `tools` |
 | **Dict** | all keys passed |
 
@@ -185,7 +222,10 @@ The signature changes when any of these fields change. It does **not** change wh
 | `add_tool(tool)` | Register a tool (framework object or dict) |
 | `add_agent(agent)` | Register an agent (framework object or dict) |
 | `sign() -> str` | Compute and return the signature |
+| `sign_to_file(path) -> str` | Sign and write a JSON signature file (timestamp, public key, hash, signature) |
 | `verify(signature) -> VerificationResult` | Verify against a previous signature |
+| `verify_file(path) -> VerificationResult` | Verify against a signature file |
+| `load_signature_file(path) -> dict` | *(static)* Read and return a signature file's contents |
 
 ### `VerificationResult`
 
