@@ -20,6 +20,8 @@ import hashlib
 import hmac
 import json
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
@@ -170,6 +172,52 @@ class AgentSigner:
             return json.dumps(result, sort_keys=True)
 
         return signature
+
+    def sign_to_file(self, path: str | Path) -> str:
+        """Sign and write the result to a JSON file.
+
+        The file contains the signature, the aggregate hash, the signing
+        timestamp (ISO 8601 / UTC), and — when Ed25519 is used — the
+        hex-encoded public key so a verifier knows *who* signed.
+
+        Returns
+        -------
+        str
+            The raw signature string (same value as ``sign()``).
+        """
+        signature = self.sign()
+        public_key_hex = None
+        if self._private_key:
+            key = Ed25519PrivateKey.from_private_bytes(self._private_key)
+            public_key_hex = key.public_key().public_bytes(
+                serialization.Encoding.Raw,
+                serialization.PublicFormat.Raw,
+            ).hex()
+        elif self._public_key:
+            public_key_hex = self._public_key.hex()
+
+        record: dict[str, Any] = {
+            "signed_at": datetime.now(timezone.utc).isoformat(),
+            "public_key": public_key_hex,
+            "hash": self._compute_aggregate(),
+            "signature": signature,
+        }
+        Path(path).write_text(json.dumps(record, indent=2) + "\n")
+        return signature
+
+    @staticmethod
+    def load_signature_file(path: str | Path) -> dict[str, Any]:
+        """Read a signature file and return its contents as a dict."""
+        return json.loads(Path(path).read_text())
+
+    def verify_file(self, path: str | Path) -> VerificationResult:
+        """Verify the current setup against a signature file.
+
+        Reads the file written by ``sign_to_file()`` and delegates to
+        ``verify()``.
+        """
+        record = self.load_signature_file(path)
+        return self.verify(record["signature"])
 
     def verify(self, signature: str) -> VerificationResult:
         """Verify the current setup against a previously produced signature.

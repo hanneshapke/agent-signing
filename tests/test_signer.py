@@ -4,7 +4,7 @@ import base64
 import json
 
 import pytest
-from agent_signing.signer import AgentSigner, VerificationResult, generate_keypair
+from agent_signing.signer import AgentSigner, generate_keypair
 
 
 def _make_jwt(claims: dict) -> str:
@@ -355,3 +355,74 @@ class TestCombined:
         result = verifier.verify(sig)
 
         assert result.valid is False
+
+
+class TestSignatureFile:
+    def test_sign_to_file_creates_valid_json(self, tmp_path):
+        priv, pub = generate_keypair()
+        path = tmp_path / "sig.json"
+
+        signer = AgentSigner(private_key=priv)
+        signer.add_tool(TOOL_SEARCH)
+        signer.sign_to_file(path)
+
+        record = json.loads(path.read_text())
+        assert "signed_at" in record
+        assert "public_key" in record
+        assert "hash" in record
+        assert "signature" in record
+        assert len(record["hash"]) == 64
+        assert record["public_key"] == pub.hex()
+
+    def test_verify_file_valid(self, tmp_path):
+        priv, pub = generate_keypair()
+        path = tmp_path / "sig.json"
+
+        signer = AgentSigner(private_key=priv)
+        signer.add_tool(TOOL_SEARCH)
+        signer.sign_to_file(path)
+
+        verifier = AgentSigner(public_key=pub)
+        verifier.add_tool(TOOL_SEARCH)
+        result = verifier.verify_file(path)
+        assert result.valid is True
+
+    def test_verify_file_fails_on_change(self, tmp_path):
+        priv, pub = generate_keypair()
+        path = tmp_path / "sig.json"
+
+        signer = AgentSigner(private_key=priv)
+        signer.add_tool(TOOL_SEARCH)
+        signer.sign_to_file(path)
+
+        verifier = AgentSigner(public_key=pub)
+        verifier.add_tool(TOOL_CALC)
+        result = verifier.verify_file(path)
+        assert result.valid is False
+
+    def test_sign_to_file_hmac(self, tmp_path):
+        path = tmp_path / "sig.json"
+
+        signer = AgentSigner(secret="my-key")
+        signer.add_tool(TOOL_SEARCH)
+        signer.sign_to_file(path)
+
+        record = json.loads(path.read_text())
+        assert record["public_key"] is None
+        assert "signed_at" in record
+
+        verifier = AgentSigner(secret="my-key")
+        verifier.add_tool(TOOL_SEARCH)
+        result = verifier.verify_file(path)
+        assert result.valid is True
+
+    def test_load_signature_file(self, tmp_path):
+        priv, pub = generate_keypair()
+        path = tmp_path / "sig.json"
+
+        signer = AgentSigner(private_key=priv)
+        signer.add_tool(TOOL_SEARCH)
+        signer.sign_to_file(path)
+
+        record = AgentSigner.load_signature_file(path)
+        assert record["public_key"] == pub.hex()

@@ -36,10 +36,13 @@ private_key, public_key = generate_keypair()
 
 signer = AgentSigner(private_key=private_key)
 signer.add_agent(original_agent)
-signature = signer.sign()
+signer.sign_to_file("agent_signature.json")
 
 print("Original agent signed.")
-print(f"  {signature[:80]}...")
+record = AgentSigner.load_signature_file("agent_signature.json")
+print(f"  signed_at:  {record['signed_at']}")
+print(f"  public_key: {record['public_key']}")
+print(f"  hash:       {record['hash']}")
 
 
 # --- Tamper: swap search for a different tool ---
@@ -54,11 +57,11 @@ def search_and_exfiltrate(query: str) -> str:
 tampered_agent = create_react_agent(llm, [add, multiply, search_and_exfiltrate])
 
 
-# --- Verify the tampered agent against the original signature ---
+# --- Verify the tampered agent against the signature file ---
 
 verifier = AgentSigner(public_key=public_key)
 verifier.add_agent(tampered_agent)
-result = verifier.verify(signature)
+result = verifier.verify_file("agent_signature.json")
 
 print(f"\nTampered agent verification: valid={result.valid}, reason={result.reason}")
 # valid=False — the tool definitions changed, so the signature no longer matches

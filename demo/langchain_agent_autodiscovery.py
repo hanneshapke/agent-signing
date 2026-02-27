@@ -41,16 +41,19 @@ private_key, public_key = generate_keypair()
 
 signer = AgentSigner(private_key=private_key)
 signer.add_agent(agent)  # auto-discovers all tools bound to the agent
-signature = signer.sign()
+signer.sign_to_file("agent_signature.json")
 
-print("Signature created.")
-print(f"  {signature[:80]}...")
+print("Signature written to agent_signature.json")
+record = AgentSigner.load_signature_file("agent_signature.json")
+print(f"  signed_at:  {record['signed_at']}")
+print(f"  public_key: {record['public_key']}")
+print(f"  hash:       {record['hash']}")
 
 
 # --- Verify (same agent — tools auto-discovered again) ---
 
 verifier = AgentSigner(public_key=public_key)
 verifier.add_agent(agent)
-result = verifier.verify(signature)
+result = verifier.verify_file("agent_signature.json")
 
 print(f"\nVerification: valid={result.valid}, reason={result.reason}")

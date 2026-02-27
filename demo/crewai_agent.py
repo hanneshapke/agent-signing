@@ -45,10 +45,13 @@ signer.add_tool(search)
 signer.add_tool(calculator)
 signer.add_agent(researcher)  # auto-extracts role, goal, backstory, tools
 signer.add_agent(writer)
-signature = signer.sign()
+signer.sign_to_file("agent_signature.json")
 
-print("Signature created.")
-print(f"  {signature[:80]}...")
+print("Signature written to agent_signature.json")
+record = AgentSigner.load_signature_file("agent_signature.json")
+print(f"  signed_at:  {record['signed_at']}")
+print(f"  public_key: {record['public_key']}")
+print(f"  hash:       {record['hash']}")
 
 
 # --- Verify (different order — still valid) ---
@@ -58,6 +61,6 @@ verifier.add_agent(writer)       # swapped order
 verifier.add_agent(researcher)
 verifier.add_tool(calculator)
 verifier.add_tool(search)
-result = verifier.verify(signature)
+result = verifier.verify_file("agent_signature.json")
 
 print(f"\nVerification: valid={result.valid}, reason={result.reason}")

@@ -42,10 +42,13 @@ signer.add_tool(add)
 signer.add_tool(multiply)
 signer.add_tool(search)
 signer.add_agent(agent)
-signature = signer.sign()
+signer.sign_to_file("agent_signature.json")
 
-print("Signature created.")
-print(f"  {signature[:80]}...")
+print("Signature written to agent_signature.json")
+record = AgentSigner.load_signature_file("agent_signature.json")
+print(f"  signed_at:  {record['signed_at']}")
+print(f"  public_key: {record['public_key']}")
+print(f"  hash:       {record['hash']}")
 
 
 # --- Verify (same setup, different order) ---
@@ -55,6 +58,6 @@ verifier.add_tool(search)       # different order — still valid
 verifier.add_tool(add)
 verifier.add_tool(multiply)
 verifier.add_agent(agent)
-result = verifier.verify(signature)
+result = verifier.verify_file("agent_signature.json")
 
 print(f"\nVerification: valid={result.valid}, reason={result.reason}")
