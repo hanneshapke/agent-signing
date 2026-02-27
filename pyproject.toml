@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-signing"
+version = "0.1.0"
+description = "A Python package for signing agent setups"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.12"
+authors = [
+    { name = "Hannes Hapke" },
+]
+dependencies = [
+    "cryptography>=42.0",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+demo-langchain = ["langchain", "langchain-core", "langchain-openai", "langgraph"]
+demo-crewai = ["crewai"]
+
+[tool.setuptools]
+packages = ["agent_signing"]
+
+[project.urls]
+Homepage = "https://github.com/hanneshapke/agent-signing"
