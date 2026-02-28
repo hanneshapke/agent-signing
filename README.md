@@ -18,6 +18,7 @@ Optional dependencies for running the demos:
 ```bash
 pip install agent-signing[demo-langchain]  # LangChain / LangGraph demos
 pip install agent-signing[demo-crewai]     # CrewAI demo
+pip install agent-signing[server]          # Registry server (FastAPI + uvicorn)
 ```
 
 ## Quick start
@@ -121,6 +122,48 @@ assert result.valid
 record = AgentSigner.load_signature_file("agent_signature.json")
 print(record["signed_at"], record["public_key"])
 ```
+
+## Signature registry
+
+The optional registry server lets teams publish and inspect signatures in a central location.
+
+### Running the server
+
+```bash
+pip install agent-signing[server]
+uvicorn server.backend.main:app --reload
+```
+
+Open `http://localhost:8000` to browse the web UI -- search by hash or view recent signatures.
+
+### Publishing signatures
+
+Use `publish()` to submit a signature to the registry. It accepts an optional `path` to publish from an existing signature file, or signs on-the-fly.
+
+```python
+from agent_signing import AgentSigner, generate_keypair
+
+private_key, public_key = generate_keypair()
+
+signer = AgentSigner(private_key=private_key)
+signer.add_tool(my_tool)
+signer.sign_to_file("agent_signature.json")
+
+# Publish from the signature file
+signer.publish("http://localhost:8000", path="agent_signature.json")
+
+# Or sign and publish in one step (no file needed)
+signer.publish("http://localhost:8000")
+```
+
+### Registry API
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/signatures` | `POST` | Submit a signature record |
+| `/signatures/{hash}` | `GET` | Look up signatures by aggregate hash |
+| `/signatures?limit=20&offset=0` | `GET` | List recent signatures (paginated) |
+| `/` | `GET` | Web UI |
 
 ## Framework support
 
@@ -226,6 +269,7 @@ The signature changes when any of these fields change. It does **not** change wh
 | `verify(signature) -> VerificationResult` | Verify against a previous signature |
 | `verify_file(path) -> VerificationResult` | Verify against a signature file |
 | `load_signature_file(path) -> dict` | *(static)* Read and return a signature file's contents |
+| `publish(registry_url, path=None) -> dict` | Publish a signature to a registry server |
 
 ### `VerificationResult`
 
