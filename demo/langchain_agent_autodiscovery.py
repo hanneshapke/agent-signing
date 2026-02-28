@@ -1,4 +1,12 @@
-"""Demo: signing a LangChain agent setup with agent-signing."""
+"""Demo: signing a LangChain agent setup with agent-signing.
+
+Optionally publishes the signature to a registry server.
+Pass the registry URL as the first argument to enable publishing:
+
+    python demo/langchain_agent_autodiscovery.py http://localhost:8000
+"""
+
+import sys
 
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
@@ -57,3 +65,15 @@ verifier.add_agent(agent)
 result = verifier.verify_file("agent_signature.json")
 
 print(f"\nVerification: valid={result.valid}, reason={result.reason}")
+
+
+# --- Optionally publish to a registry ---
+
+if len(sys.argv) > 1:
+    registry_url = sys.argv[1]
+    resp = signer.publish(registry_url, path="agent_signature.json")
+    print(f"\nPublished to {registry_url}")
+    print(f"  registered_at: {resp['registered_at']}")
+else:
+    print("\nTip: pass a registry URL to publish the signature, e.g.:")
+    print("  python demo/langchain_agent_autodiscovery.py http://localhost:8000")

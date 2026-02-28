@@ -32,3 +32,6 @@ uv.lock
 
 # Demo output
 agent_signature.json
+
+# Registry database
+signatures.db

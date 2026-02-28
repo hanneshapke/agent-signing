@@ -205,6 +205,77 @@ class AgentSigner:
         Path(path).write_text(json.dumps(record, indent=2) + "\n")
         return signature
 
+    def publish(
+        self,
+        registry_url: str,
+        path: str | Path | None = None,
+    ) -> dict[str, Any]:
+        """Publish a signature record to a registry server.
+
+        Parameters
+        ----------
+        registry_url : str
+            Base URL of the registry (e.g. ``"http://localhost:8000"``).
+        path : str | Path | None
+            Path to a signature file to read and publish.  If not given,
+            signs on-the-fly and builds the record automatically.
+
+        Returns
+        -------
+        dict
+            The response from the registry server.
+
+        Raises
+        ------
+        ConnectionError
+            If the registry is unreachable.
+        ValueError
+            If the registry rejects the submission.
+        """
+        import urllib.error
+        import urllib.request
+
+        if path is not None:
+            record = self.load_signature_file(path)
+        else:
+            signature = self.sign()
+            public_key_hex = None
+            if self._private_key:
+                key = Ed25519PrivateKey.from_private_bytes(self._private_key)
+                public_key_hex = key.public_key().public_bytes(
+                    serialization.Encoding.Raw,
+                    serialization.PublicFormat.Raw,
+                ).hex()
+            elif self._public_key:
+                public_key_hex = self._public_key.hex()
+            record = {
+                "signed_at": datetime.now(timezone.utc).isoformat(),
+                "public_key": public_key_hex,
+                "hash": self._compute_aggregate(),
+                "signature": signature,
+            }
+
+        url = registry_url.rstrip("/") + "/signatures"
+        data = json.dumps(record).encode()
+        req = urllib.request.Request(
+            url,
+            data=data,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                return json.loads(resp.read().decode())
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode() if exc.fp else ""
+            raise ValueError(
+                f"Registry rejected submission ({exc.code}): {body}"
+            ) from exc
+        except urllib.error.URLError as exc:
+            raise ConnectionError(
+                f"Cannot reach registry at {registry_url}: {exc.reason}"
+            ) from exc
+
     @staticmethod
     def load_signature_file(path: str | Path) -> dict[str, Any]:
         """Read a signature file and return its contents as a dict."""
