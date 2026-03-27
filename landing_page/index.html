@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>agent-signing — Sign & Verify Your AI Agents</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Instrument+Serif:ital@0;1&family=Satoshi:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0a0a0b;
+    --paper: #f4f1eb;
+    --cream: #ebe7dd;
+    --rust: #c4501a;
+    --rust-light: #e8693a;
+    --sage: #5a7a64;
+    --sage-light: #7a9a84;
+    --slate: #6b6a67;
+    --ghost: rgba(10,10,11,0.06);
+    --mono: 'DM Mono', monospace;
+    --serif: 'Instrument Serif', Georgia, serif;
+    --sans: 'Satoshi', system-ui, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--paper);
+    color: var(--ink);
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── NOISE TEXTURE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 3rem;
+    background: rgba(244,241,235,0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--ghost);
+    transition: transform 0.4s ease;
+  }
+
+  .nav-logo {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .nav-logo .sigil {
+    width: 28px;
+    height: 28px;
+    border: 2px solid var(--ink);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 500;
+  }
+
+  .nav-links { display: flex; gap: 2rem; align-items: center; }
+
+  .nav-links a {
+    font-family: var(--sans);
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--slate);
+    text-decoration: none;
+    letter-spacing: 0.02em;
+    transition: color 0.2s;
+  }
+
+  .nav-links a:hover { color: var(--ink); }
+
+  .nav-cta {
+    font-family: var(--mono) !important;
+    font-size: 0.78rem !important;
+    background: var(--ink);
+    color: var(--paper) !important;
+    padding: 0.55rem 1.2rem;
+    border-radius: 4px;
+    transition: background 0.25s, transform 0.2s !important;
+  }
+
+  .nav-cta:hover { background: var(--rust) !important; transform: translateY(-1px); }
+
+  /* ── HERO ── */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 8rem 3rem 4rem;
+    position: relative;
+  }
+
+  .hero-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--ghost) 1px, transparent 1px),
+      linear-gradient(90deg, var(--ghost) 1px, transparent 1px);
+    background-size: 60px 60px;
+    opacity: 0.7;
+  }
+
+  .hero-content {
+    position: relative;
+    z-index: 2;
+    max-width: 900px;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--sage);
+    border: 1px solid var(--sage-light);
+    padding: 0.4rem 0.9rem;
+    border-radius: 100px;
+    margin-bottom: 2.5rem;
+    animation: fadeSlideUp 0.8s ease-out both;
+  }
+
+  .hero-badge .dot {
+    width: 6px;
+    height: 6px;
+    background: var(--sage);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .hero h1 {
+    font-family: var(--serif);
+    font-size: clamp(3.2rem, 7vw, 6.5rem);
+    font-weight: 400;
+    line-height: 1.0;
+    letter-spacing: -0.03em;
+    margin-bottom: 2rem;
+    animation: fadeSlideUp 0.8s ease-out 0.15s both;
+  }
+
+  .hero h1 em {
+    font-style: italic;
+    color: var(--rust);
+  }
+
+  .hero-sub {
+    font-family: var(--sans);
+    font-size: 1.15rem;
+    line-height: 1.65;
+    color: var(--slate);
+    max-width: 540px;
+    margin-bottom: 3rem;
+    font-weight: 400;
+    animation: fadeSlideUp 0.8s ease-out 0.3s both;
+  }
+
+  .hero-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    animation: fadeSlideUp 0.8s ease-out 0.45s both;
+  }
+
+  .btn-primary {
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    font-weight: 500;
+    background: var(--ink);
+    color: var(--paper);
+    padding: 0.85rem 1.8rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.25s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .btn-primary:hover { background: var(--rust); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(196,80,26,0.2); }
+
+  .btn-secondary {
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    font-weight: 400;
+    color: var(--slate);
+    text-decoration: none;
+    padding: 0.85rem 1.4rem;
+    border: 1px solid rgba(107,106,103,0.25);
+    border-radius: 4px;
+    transition: all 0.25s;
+  }
+
+  .btn-secondary:hover { border-color: var(--ink); color: var(--ink); }
+
+  .hero-sig {
+    position: absolute;
+    right: 3rem;
+    bottom: 6rem;
+    width: 360px;
+    z-index: 2;
+    animation: fadeSlideUp 1s ease-out 0.6s both;
+  }
+
+  .sig-card {
+    background: var(--ink);
+    color: var(--paper);
+    border-radius: 8px;
+    padding: 1.5rem;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    line-height: 1.8;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.15);
+    transform: rotate(-1.5deg);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .sig-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--sage), var(--rust));
+  }
+
+  .sig-line { opacity: 0.5; }
+  .sig-key { color: var(--sage-light); }
+  .sig-val { color: var(--paper); }
+  .sig-check { color: var(--sage-light); }
+
+  /* ── SECTION SHARED ── */
+  section { padding: 7rem 3rem; }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--sage);
+    margin-bottom: 1.5rem;
+  }
+
+  .section-title {
+    font-family: var(--serif);
+    font-size: clamp(2.2rem, 4vw, 3.6rem);
+    font-weight: 400;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin-bottom: 1.5rem;
+  }
+
+  /* ── WHY SIGN ── */
+  .why {
+    background: var(--ink);
+    color: var(--paper);
+    position: relative;
+  }
+
+  .why .section-label { color: var(--sage-light); }
+
+  .why-intro {
+    font-size: 1.1rem;
+    line-height: 1.7;
+    color: rgba(244,241,235,0.6);
+    max-width: 600px;
+    margin-bottom: 4rem;
+  }
+
+  .why-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+  }
+
+  .why-card {
+    background: rgba(244,241,235,0.04);
+    padding: 2.5rem;
+    border-radius: 2px;
+    transition: background 0.3s;
+    position: relative;
+  }
+
+  .why-card:hover { background: rgba(244,241,235,0.07); }
+
+  .why-card-icon {
+    width: 44px;
+    height: 44px;
+    border: 1.5px solid var(--sage-light);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+    font-size: 1.1rem;
+  }
+
+  .why-card h3 {
+    font-family: var(--sans);
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    letter-spacing: -0.01em;
+  }
+
+  .why-card p {
+    font-size: 0.88rem;
+    line-height: 1.65;
+    color: rgba(244,241,235,0.55);
+  }
+
+  /* ── HOW TO SIGN ── */
+  .how {
+    background: var(--cream);
+    position: relative;
+  }
+
+  .how-header { max-width: 600px; margin-bottom: 4rem; }
+
+  .how-sub {
+    font-size: 1.05rem;
+    line-height: 1.65;
+    color: var(--slate);
+  }
+
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    position: relative;
+  }
+
+  .step {
+    padding: 2.5rem;
+    border: 1px solid rgba(10,10,11,0.08);
+    position: relative;
+    transition: background 0.3s;
+  }
+
+  .step:hover { background: rgba(255,255,255,0.5); }
+
+  .step-num {
+    font-family: var(--serif);
+    font-size: 3.5rem;
+    font-style: italic;
+    color: var(--rust);
+    opacity: 0.35;
+    line-height: 1;
+    margin-bottom: 1.5rem;
+  }
+
+  .step h3 {
+    font-family: var(--sans);
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    letter-spacing: -0.01em;
+  }
+
+  .step p {
+    font-size: 0.88rem;
+    line-height: 1.6;
+    color: var(--slate);
+    margin-bottom: 1.5rem;
+  }
+
+  .step-code {
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    line-height: 1.75;
+    padding: 1rem 1.2rem;
+    border-radius: 6px;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .step-code .kw { color: var(--rust-light); }
+  .step-code .fn { color: var(--sage-light); }
+  .step-code .st { color: #d4a574; }
+  .step-code .cm { color: rgba(244,241,235,0.35); }
+
+  /* ── VERIFY ── */
+  .verify { position: relative; }
+
+  .verify-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4rem;
+    align-items: start;
+  }
+
+  .verify-text { max-width: 480px; }
+
+  .verify-text p {
+    font-size: 1rem;
+    line-height: 1.7;
+    color: var(--slate);
+    margin-bottom: 1.5rem;
+  }
+
+  .verify-features { list-style: none; margin: 2rem 0; }
+
+  .verify-features li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem 0;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    color: var(--ink);
+    border-bottom: 1px solid var(--ghost);
+  }
+
+  .verify-features li:last-child { border-bottom: none; }
+
+  .verify-check {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--sage);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    margin-top: 2px;
+  }
+
+  .verify-code-block {
+    background: var(--ink);
+    color: var(--paper);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.1);
+  }
+
+  .code-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.8rem 1.2rem;
+    border-bottom: 1px solid rgba(244,241,235,0.08);
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: rgba(244,241,235,0.45);
+  }
+
+  .code-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .code-dot.r { background: #e5534b; }
+  .code-dot.y { background: #d4a72c; }
+  .code-dot.g { background: #57ab5a; }
+
+  .code-body {
+    padding: 1.5rem;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    line-height: 1.8;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  /* ── MODES ── */
+  .modes {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  .modes .section-label { color: var(--sage-light); }
+
+  .modes-header { max-width: 600px; margin-bottom: 4rem; }
+
+  .modes-sub {
+    font-size: 1.05rem;
+    line-height: 1.65;
+    color: rgba(244,241,235,0.55);
+  }
+
+  .modes-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+  }
+
+  .mode-card {
+    border: 1px solid rgba(244,241,235,0.1);
+    border-radius: 8px;
+    padding: 2rem;
+    transition: border-color 0.3s, transform 0.3s;
+  }
+
+  .mode-card:hover { border-color: var(--sage-light); transform: translateY(-3px); }
+
+  .mode-tag {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--rust-light);
+    margin-bottom: 1rem;
+  }
+
+  .mode-card h3 {
+    font-family: var(--serif);
+    font-size: 1.6rem;
+    font-weight: 400;
+    margin-bottom: 0.75rem;
+  }
+
+  .mode-card p {
+    font-size: 0.86rem;
+    line-height: 1.6;
+    color: rgba(244,241,235,0.5);
+    margin-bottom: 1.5rem;
+  }
+
+  .mode-use {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--sage-light);
+    padding-top: 1rem;
+    border-top: 1px solid rgba(244,241,235,0.08);
+  }
+
+  /* ── FRAMEWORKS ── */
+  .frameworks { text-align: center; }
+
+  .frameworks-sub {
+    font-size: 1.05rem;
+    color: var(--slate);
+    margin-bottom: 3rem;
+  }
+
+  .fw-logos {
+    display: flex;
+    justify-content: center;
+    gap: 3rem;
+    flex-wrap: wrap;
+  }
+
+  .fw-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 120px;
+  }
+
+  .fw-icon {
+    width: 64px;
+    height: 64px;
+    border: 1.5px solid var(--ghost);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: var(--ink);
+    background: white;
+    transition: border-color 0.25s, transform 0.25s;
+  }
+
+  .fw-icon:hover { border-color: var(--sage); transform: translateY(-2px); }
+
+  .fw-name {
+    font-family: var(--sans);
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--slate);
+  }
+
+  /* ── CTA ── */
+  .cta {
+    text-align: center;
+    padding: 8rem 3rem;
+    position: relative;
+  }
+
+  .cta .section-title {
+    max-width: 600px;
+    margin: 0 auto 1.5rem;
+  }
+
+  .cta-sub {
+    font-size: 1rem;
+    color: var(--slate);
+    max-width: 440px;
+    margin: 0 auto 2.5rem;
+    line-height: 1.65;
+  }
+
+  .cta-install {
+    display: inline-flex;
+    align-items: center;
+    gap: 1rem;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    padding: 1rem 1.6rem;
+    border-radius: 6px;
+    margin-bottom: 1.5rem;
+    cursor: pointer;
+    border: none;
+    transition: transform 0.2s;
+  }
+
+  .cta-install:hover { transform: translateY(-2px); }
+
+  .cta-copy {
+    font-size: 0.65rem;
+    opacity: 0.5;
+    padding: 0.2rem 0.5rem;
+    border: 1px solid rgba(244,241,235,0.2);
+    border-radius: 3px;
+  }
+
+  .cta-links {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-top: 1rem;
+  }
+
+  .cta-links a {
+    font-family: var(--sans);
+    font-size: 0.82rem;
+    color: var(--slate);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .cta-links a:hover { color: var(--rust); }
+
+  /* ── FOOTER ── */
+  footer {
+    padding: 2rem 3rem;
+    border-top: 1px solid var(--ghost);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .footer-left {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--slate);
+  }
+
+  .footer-right a {
+    font-family: var(--sans);
+    font-size: 0.8rem;
+    color: var(--slate);
+    text-decoration: none;
+    margin-left: 1.5rem;
+    transition: color 0.2s;
+  }
+
+  .footer-right a:hover { color: var(--ink); }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .reveal {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+  }
+
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    nav { padding: 1rem 1.5rem; }
+    .nav-links a:not(.nav-cta) { display: none; }
+    section { padding: 4rem 1.5rem; }
+    .hero { padding: 6rem 1.5rem 3rem; }
+    .hero-sig { display: none; }
+    .why-grid, .steps, .modes-grid { grid-template-columns: 1fr; }
+    .verify-layout { grid-template-columns: 1fr; }
+    .fw-logos { gap: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav>
+  <a href="#" class="nav-logo">
+    <span class="sigil">ag</span>
+    agent-signing
+  </a>
+  <div class="nav-links">
+    <a href="#why">Why Sign</a>
+    <a href="#how">How It Works</a>
+    <a href="#verify">Verify</a>
+    <a href="#modes">Modes</a>
+    <a href="https://github.com/hanneshapke/agent-signing" class="nav-cta" target="_blank">GitHub &rarr;</a>
+  </div>
+</nav>
+
+<!-- ── HERO ── -->
+<section class="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-content">
+    <div class="hero-badge">
+      <span class="dot"></span>
+      Open source &middot; Apache 2.0
+    </div>
+    <h1>Know your agents.<br>Sign <em>everything.</em></h1>
+    <p class="hero-sub">
+      Cryptographically sign and verify AI agent configurations.
+      Detect when tools, models, or parameters change — and prove
+      who approved them.
+    </p>
+    <div class="hero-actions">
+      <a href="#how" class="btn-primary">
+        <span>Get started</span>
+        <span>&darr;</span>
+      </a>
+      <a href="https://github.com/hanneshapke/agent-signing" class="btn-secondary" target="_blank">View source</a>
+    </div>
+  </div>
+
+  <!-- floating signature card -->
+  <div class="hero-sig">
+    <div class="sig-card">
+      <div class="sig-line"><span class="sig-key">signed_at</span>  <span class="sig-val">2025-06-15T12:00:00+00:00</span></div>
+      <div class="sig-line"><span class="sig-key">public_key</span> <span class="sig-val">a7c4f2e1...</span></div>
+      <div class="sig-line"><span class="sig-key">hash</span>       <span class="sig-val">842f9705bc3d...</span></div>
+      <div class="sig-line"><span class="sig-key">signature</span>  <span class="sig-val">e4b8c319fa...</span></div>
+      <br>
+      <div class="sig-check">&#10003; valid &middot; identity: user@example.com</div>
+    </div>
+  </div>
+</section>
+
+<!-- ── WHY SIGN ── -->
+<section class="why" id="why">
+  <div class="section-label reveal">Why Sign Your Agents</div>
+  <h2 class="section-title reveal" style="color:var(--paper);">
+    AI agents wield real tools.<br>Their integrity matters.
+  </h2>
+  <p class="why-intro reveal">
+    When an agent can search the web, execute code, or access sensitive data,
+    any undetected change to its configuration is a security risk.
+    Signing creates a verifiable chain of trust.
+  </p>
+  <div class="why-grid">
+    <div class="why-card reveal">
+      <div class="why-card-icon">&#128274;</div>
+      <h3>Tamper Detection</h3>
+      <p>Catch unauthorized changes instantly. If anyone modifies a tool's name,
+         description, or parameters — the signature breaks and you know immediately.</p>
+    </div>
+    <div class="why-card reveal">
+      <div class="why-card-icon">&#128100;</div>
+      <h3>Attribution & Identity</h3>
+      <p>Prove exactly who approved an agent configuration. Ed25519 signing and JWT
+         identity tokens create an auditable trail from developer to deployment.</p>
+    </div>
+    <div class="why-card reveal">
+      <div class="why-card-icon">&#128640;</div>
+      <h3>Deploy with Confidence</h3>
+      <p>Gate deployments on valid signatures. Before any agent goes to production,
+         verify that its tools and configuration match what was approved in development.</p>
+    </div>
+    <div class="why-card reveal">
+      <div class="why-card-icon">&#128295;</div>
+      <h3>Framework-Agnostic</h3>
+      <p>Works with LangChain, LangGraph, CrewAI, or plain dictionaries.
+         Auto-discovers metadata from any supported framework — no lock-in.</p>
+    </div>
+    <div class="why-card reveal">
+      <div class="why-card-icon">&#128203;</div>
+      <h3>Compliance & Audit</h3>
+      <p>Build audit trails with timestamped signature files and a central registry server.
+         Meet compliance requirements for AI governance and operational transparency.</p>
+    </div>
+    <div class="why-card reveal">
+      <div class="why-card-icon">&#9878;</div>
+      <h3>Order-Independent</h3>
+      <p>Reorder tools or agents in your code freely — the signature stays valid.
+         Only semantic changes to the configuration break the signature.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── HOW TO SIGN ── -->
+<section class="how" id="how">
+  <div class="how-header">
+    <div class="section-label reveal">How To Sign</div>
+    <h2 class="section-title reveal">Three steps to a<br>signed agent.</h2>
+    <p class="how-sub reveal">Install the package, register your tools, and sign. It takes
+       less code than your import statements.</p>
+  </div>
+  <div class="steps">
+    <div class="step reveal">
+      <div class="step-num">01</div>
+      <h3>Install & Initialize</h3>
+      <p>Install from PyPI and create a signer with your preferred signing mode — HMAC,
+         Ed25519 keypair, or JWT identity.</p>
+      <div class="step-code"><span class="cm"># Install</span>
+pip install agent-signing
+
+<span class="cm"># Initialize with a keypair</span>
+<span class="kw">from</span> agent_signing <span class="kw">import</span> (
+    AgentSigner, generate_keypair
+)
+
+private_key, public_key = <span class="fn">generate_keypair</span>()
+signer = <span class="fn">AgentSigner</span>(
+    private_key=private_key
+)</div>
+    </div>
+    <div class="step reveal">
+      <div class="step-num">02</div>
+      <h3>Register Tools & Agents</h3>
+      <p>Add any combination of tools and agents. Pass framework objects directly
+         or use plain dictionaries — metadata is extracted automatically.</p>
+      <div class="step-code"><span class="cm"># Add framework tools directly</span>
+signer.<span class="fn">add_tool</span>(search_tool)
+signer.<span class="fn">add_tool</span>(calculator_tool)
+
+<span class="cm"># Or add agents (auto-discovers tools)</span>
+signer.<span class="fn">add_agent</span>(react_agent)
+
+<span class="cm"># Or use plain dicts</span>
+signer.<span class="fn">add_tool</span>({
+    <span class="st">"name"</span>: <span class="st">"search"</span>,
+    <span class="st">"description"</span>: <span class="st">"Search the web"</span>,
+    <span class="st">"parameters"</span>: {<span class="st">"query"</span>: <span class="st">"str"</span>}
+})</div>
+    </div>
+    <div class="step reveal">
+      <div class="step-num">03</div>
+      <h3>Sign & Publish</h3>
+      <p>Generate a signature, write it to a file, and optionally publish
+         to a shared registry for team-wide verification.</p>
+      <div class="step-code"><span class="cm"># Sign to a file</span>
+signer.<span class="fn">sign_to_file</span>(
+    <span class="st">"agent_signature.json"</span>
+)
+
+<span class="cm"># Publish to a shared registry</span>
+signer.<span class="fn">publish</span>(
+    <span class="st">"http://registry:8000"</span>,
+    path=<span class="st">"agent_signature.json"</span>
+)</div>
+    </div>
+  </div>
+</section>
+
+<!-- ── VERIFY ── -->
+<section class="verify" id="verify">
+  <div class="verify-layout">
+    <div class="verify-text">
+      <div class="section-label reveal">Verification</div>
+      <h2 class="section-title reveal">Verify before<br>you deploy.</h2>
+      <p class="reveal">Rebuild the same agent configuration on any machine and verify it
+         against the original signature. If anything changed — a renamed tool,
+         a modified parameter, a swapped model — verification fails.</p>
+      <ul class="verify-features reveal">
+        <li>
+          <span class="verify-check">&#10003;</span>
+          <span>Verify from a signature string in memory or a JSON file on disk</span>
+        </li>
+        <li>
+          <span class="verify-check">&#10003;</span>
+          <span>Only the public key is needed to verify — private keys never leave the signer</span>
+        </li>
+        <li>
+          <span class="verify-check">&#10003;</span>
+          <span>Decoded JWT identity claims are returned on successful verification</span>
+        </li>
+        <li>
+          <span class="verify-check">&#10003;</span>
+          <span>Query the registry server by hash to inspect any published signature</span>
+        </li>
+      </ul>
+    </div>
+    <div class="verify-code-block reveal">
+      <div class="code-header">
+        <span class="code-dot r"></span>
+        <span class="code-dot y"></span>
+        <span class="code-dot g"></span>
+        <span style="margin-left:0.5rem;">verify.py</span>
+      </div>
+      <div class="code-body"><span class="kw">from</span> agent_signing <span class="kw">import</span> AgentSigner
+
+<span class="cm"># Rebuild the same setup on any machine</span>
+verifier = <span class="fn">AgentSigner</span>(public_key=public_key)
+verifier.<span class="fn">add_tool</span>(search_tool)
+verifier.<span class="fn">add_tool</span>(calculator_tool)
+
+<span class="cm"># Verify against the signature file</span>
+result = verifier.<span class="fn">verify_file</span>(
+    <span class="st">"agent_signature.json"</span>
+)
+
+<span class="kw">if</span> result.valid:
+    print(<span class="st">"&#10003; Configuration verified"</span>)
+    print(f<span class="st">"  Signed by: {result.identity}"</span>)
+<span class="kw">else</span>:
+    print(f<span class="st">"&#10007; {result.reason}"</span>)
+
+<span class="cm"># Or look up a published signature</span>
+<span class="cm"># GET /signatures/{hash}</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ── SIGNING MODES ── -->
+<section class="modes" id="modes">
+  <div class="modes-header">
+    <div class="section-label reveal">Signing Modes</div>
+    <h2 class="section-title reveal" style="color:var(--paper);">
+      Choose your trust model.
+    </h2>
+    <p class="modes-sub reveal">Three signing modes for different security requirements.
+       Combine Ed25519 with JWT for both cryptographic proof and identity context.</p>
+  </div>
+  <div class="modes-grid">
+    <div class="mode-card reveal">
+      <div class="mode-tag">Shared Secret</div>
+      <h3>HMAC</h3>
+      <p>The simplest mode. Both signer and verifier share a secret key. Best for
+         single-team setups where key distribution is easy.</p>
+      <div class="mode-use">AgentSigner(secret="my-key")</div>
+    </div>
+    <div class="mode-card reveal">
+      <div class="mode-tag">Asymmetric Keypair</div>
+      <h3>Ed25519</h3>
+      <p>Sign with a private key, verify with the public key. Proves who signed the
+         configuration. Private keys never leave the signing machine.</p>
+      <div class="mode-use">AgentSigner(private_key=key)</div>
+    </div>
+    <div class="mode-card reveal">
+      <div class="mode-tag">Identity Token</div>
+      <h3>JWT</h3>
+      <p>Attach an OAuth/OIDC identity token. On verification, decoded claims like
+         subject and issuer are returned. Combine with Ed25519 for full provenance.</p>
+      <div class="mode-use">AgentSigner(identity_token="eyJ...")</div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FRAMEWORK SUPPORT ── -->
+<section class="frameworks" id="frameworks">
+  <div class="section-label reveal">Framework Support</div>
+  <h2 class="section-title reveal">Works with what you use.</h2>
+  <p class="frameworks-sub reveal">Auto-discovers metadata. Zero framework dependencies.</p>
+  <div class="fw-logos reveal">
+    <div class="fw-item">
+      <div class="fw-icon">&#x1f99c;</div>
+      <span class="fw-name">LangChain</span>
+    </div>
+    <div class="fw-item">
+      <div class="fw-icon">&#x1f4ca;</div>
+      <span class="fw-name">LangGraph</span>
+    </div>
+    <div class="fw-item">
+      <div class="fw-icon">&#x1f680;</div>
+      <span class="fw-name">CrewAI</span>
+    </div>
+    <div class="fw-item">
+      <div class="fw-icon">{ }</div>
+      <span class="fw-name">Plain Dicts</span>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA ── -->
+<section class="cta">
+  <div class="section-label reveal">Get Started</div>
+  <h2 class="section-title reveal">Start signing in<br>under a minute.</h2>
+  <p class="cta-sub reveal">One install. One import. Zero framework dependencies.
+     Just <code style="font-family:var(--mono);font-size:0.85em;background:var(--ghost);padding:0.15em 0.4em;border-radius:3px;">cryptography</code> as a runtime dependency.</p>
+  <div class="reveal">
+    <button class="cta-install" onclick="navigator.clipboard.writeText('pip install agent-signing')">
+      <span>pip install agent-signing</span>
+      <span class="cta-copy">copy</span>
+    </button>
+  </div>
+  <div class="cta-links reveal">
+    <a href="https://github.com/hanneshapke/agent-signing" target="_blank">GitHub</a>
+    <a href="https://github.com/hanneshapke/agent-signing/blob/main/README.md" target="_blank">Documentation</a>
+    <a href="https://github.com/hanneshapke/agent-signing/blob/main/LICENSE" target="_blank">Apache 2.0 License</a>
+  </div>
+</section>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="footer-left">agent-signing &middot; Apache 2.0</div>
+  <div class="footer-right">
+    <a href="https://github.com/hanneshapke/agent-signing" target="_blank">GitHub</a>
+    <a href="https://github.com/hanneshapke" target="_blank">@hanneshapke</a>
+  </div>
+</footer>
+
+<!-- ── SCROLL REVEAL ── -->
+<script>
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
+
+</body>
+</html>
