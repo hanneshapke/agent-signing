@@ -8,7 +8,7 @@ version = "0.1.3"
 description = "A Python package for signing agent setups"
 readme = "README.md"
 license = "Apache-2.0"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 authors = [
     { name = "Hannes Hapke" },
 ]
@@ -27,6 +27,9 @@ server = ["fastapi>=0.100", "uvicorn[standard]>=0.20"]
 
 [tool.setuptools]
 packages = ["agent_signing"]
+
+[project.scripts]
+agent-signing = "agent_signing.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/hanneshapke/agent-signing"
