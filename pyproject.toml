@@ -14,13 +14,15 @@ authors = [
 ]
 dependencies = [
     "cryptography>=42.0",
+    "fastapi[standard]>=0.100",
+    "uvicorn[standard]>=0.20",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "ruff"]
+dev = ["pytest", "ruff", "fastapi-cloud-cli"]
 demo-langchain = ["langchain", "langchain-core", "langchain-openai", "langgraph"]
 demo-crewai = ["crewai"]
 server = ["fastapi>=0.100", "uvicorn[standard]>=0.20"]
@@ -33,3 +35,6 @@ agent-signing = "agent_signing.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/hanneshapke/agent-signing"
+
+[tool.fastapi]
+entrypoint = "server.backend.main:app"
