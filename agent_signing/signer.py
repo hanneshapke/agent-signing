@@ -260,7 +260,10 @@ class AgentSigner:
         req = urllib.request.Request(
             url,
             data=data,
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "User-Agent": "agent-signing/0.1.3",
+            },
             method="POST",
         )
         try:
