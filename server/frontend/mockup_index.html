@@ -665,29 +665,6 @@
                 height: 14px;
                 color: var(--accent);
             }
-
-            /* load-more button */
-            .load-more {
-                display: block;
-                width: 100%;
-                padding: 14px;
-                margin-top: -1px;
-                background: var(--bg-elev);
-                border: 1px solid var(--line-soft);
-                border-radius: 0 0 var(--radius) var(--radius);
-                color: var(--text-dim);
-                font-family: var(--mono);
-                font-size: 12.5px;
-                cursor: pointer;
-                transition:
-                    background 0.16s,
-                    color 0.16s;
-                text-align: center;
-            }
-            .load-more:hover {
-                background: var(--bg-elev-2);
-                color: var(--text);
-            }
         </style>
     </head>
     <body>
@@ -717,12 +694,8 @@
                     </a>
                     <div class="nav-right">
                         <a class="nav-link" href="#recent">Recent</a>
-                        <a
-                            class="nav-link"
-                            href="https://github.com/hanneshapke/agent-signing#readme"
-                            >Docs</a
-                        >
-                        <a class="nav-link" href="/docs">API</a>
+                        <a class="nav-link" href="#">Docs</a>
+                        <a class="nav-link" href="#">API</a>
                         <span class="status"
                             ><span class="dot"></span>operational</span
                         >
@@ -757,7 +730,7 @@
                             type="text"
                             spellcheck="false"
                             autocomplete="off"
-                            placeholder="paste a hash to look up…"
+                            placeholder="paste a hash or search by agent name…"
                             aria-label="Look up by hash"
                         />
                         <button class="btn" id="lookup">
@@ -777,27 +750,27 @@
                     </div>
                     <p class="hint">
                         No hash handy? Try a sample &middot;
-                        <b id="sample">loading…</b>
+                        <b id="sample">8f4e2a9c1b…d7</b>
                     </p>
                 </div>
             </section>
 
             <section class="stats">
                 <div class="stat">
-                    <div class="n" id="stat-total">—</div>
+                    <div class="n">14,802</div>
                     <div class="l">signatures</div>
                 </div>
                 <div class="stat">
-                    <div class="n" id="stat-signers">—</div>
-                    <div class="l">signers</div>
+                    <div class="n">1,236</div>
+                    <div class="l">agents</div>
                 </div>
                 <div class="stat">
-                    <div class="n" id="stat-ed25519">—</div>
-                    <div class="l">ed25519</div>
+                    <div class="n">99.<span class="u">98%</span></div>
+                    <div class="l">verified</div>
                 </div>
                 <div class="stat">
-                    <div class="n" id="stat-hmac">—</div>
-                    <div class="l">hmac</div>
+                    <div class="n">42<span class="u">ms</span></div>
+                    <div class="l">median lookup</div>
                 </div>
             </section>
 
@@ -807,19 +780,16 @@
                     <span class="meta" id="count">— entries</span>
                 </div>
 
-                <div class="table" id="table-wrap">
+                <div class="table">
                     <div class="thead">
                         <div>fp</div>
-                        <div>hash / mode</div>
+                        <div>signature / agent</div>
                         <div>signer</div>
                         <div>signed</div>
                         <div>status</div>
                     </div>
                     <div id="rows"></div>
                 </div>
-                <button class="load-more" id="load-more" style="display: none">
-                    Load more signatures…
-                </button>
             </section>
         </main>
 
@@ -855,251 +825,196 @@
         </div>
 
         <script>
-            /* ===== State ===== */
-            let allSigs = []; /* all loaded signatures */
-            let totalCount = 0;
-            let currentOffset = 0;
-            const PAGE = 20;
+            /* ---------- sample data (replace with your /signatures API) ---------- */
+            const DATA = [
+                {
+                    hash: "8f4e2a9c1b6d3f0e7a5c8b2d4e1f9a0c6b3d8e2f1a7c4b9d0e3f6a1c8b5d7e2a",
+                    agent: "orchestrator-prod",
+                    signer: "ed25519:k4n…7zP",
+                    alg: "Ed25519",
+                    digest: "f1a7c4b9d0e3f6a1",
+                    signed: "2m ago",
+                    ts: "2026-05-31 14:02:11 UTC",
+                    expires: "2027-05-31",
+                    idx: 14802,
+                    status: "verified",
+                },
+                {
+                    hash: "a1c3e5079bd24f68ace013579bdf2468ace013579bdf2468ace013579bdf2401",
+                    agent: "retrieval-worker-3",
+                    signer: "ecdsa:p9m…2xQ",
+                    alg: "ECDSA-P256",
+                    digest: "79bdf2468ace0135",
+                    signed: "11m ago",
+                    ts: "2026-05-31 13:53:40 UTC",
+                    expires: "2026-11-30",
+                    idx: 14801,
+                    status: "verified",
+                },
+                {
+                    hash: "c7d9b1f3a5e72084c6d8b0f2a4e6082a4c6e8b0d2f4a6c8e0b2d4f6a8c0e2b4d6",
+                    agent: "finetune-runner",
+                    signer: "ed25519:m2j…9kL",
+                    alg: "Ed25519",
+                    digest: "a4e6082a4c6e8b0d",
+                    signed: "34m ago",
+                    ts: "2026-05-31 13:30:02 UTC",
+                    expires: "2026-08-29",
+                    idx: 14800,
+                    status: "pending",
+                },
+                {
+                    hash: "b2d4f60187ac39e5b7d9f1032547698bdf0246813579ace0bdf02468135ace79",
+                    agent: "vision-agent-eu",
+                    signer: "ed25519:r7t…4vN",
+                    alg: "Ed25519",
+                    digest: "2547698bdf024681",
+                    signed: "1h ago",
+                    ts: "2026-05-31 12:58:17 UTC",
+                    expires: "2027-01-15",
+                    idx: 14799,
+                    status: "verified",
+                },
+                {
+                    hash: "e3f5079b1d2468ace0fb97531dca8642fed0b97531dca8642fed0b97531dca864",
+                    agent: "sandbox-exec-pool",
+                    signer: "ecdsa:q1w…8yH",
+                    alg: "ECDSA-P256",
+                    digest: "1dca8642fed0b975",
+                    signed: "2h ago",
+                    ts: "2026-05-31 11:44:53 UTC",
+                    expires: "—",
+                    idx: 14798,
+                    status: "revoked",
+                },
+                {
+                    hash: "f4061a8c2e0d7b9f3517ace9bd02468f13579bd02468ace13579bd02468ace135",
+                    agent: "scheduler-canary",
+                    signer: "ed25519:n5b…3pM",
+                    alg: "Ed25519",
+                    digest: "9bd02468f13579bd",
+                    signed: "3h ago",
+                    ts: "2026-05-31 10:31:09 UTC",
+                    expires: "2027-03-04",
+                    idx: 14797,
+                    status: "verified",
+                },
+                {
+                    hash: "0a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90",
+                    agent: "ingest-pipeline-v2",
+                    signer: "ed25519:t8c…1qR",
+                    alg: "Ed25519",
+                    digest: "8293a4b5c6d7e8f9",
+                    signed: "5h ago",
+                    ts: "2026-05-31 08:50:22 UTC",
+                    expires: "2026-12-01",
+                    idx: 14796,
+                    status: "verified",
+                },
+                {
+                    hash: "d6e8f0a2c4b69180735fec9b7a531d0fec9b7a531d0fec9b7a531d0fec9b7a531",
+                    agent: "eval-harness-nightly",
+                    signer: "ecdsa:v3x…6sT",
+                    alg: "ECDSA-P256",
+                    digest: "7a531d0fec9b7a53",
+                    signed: "7h ago",
+                    ts: "2026-05-31 06:39:48 UTC",
+                    expires: "2027-02-20",
+                    idx: 14795,
+                    status: "verified",
+                },
+            ];
 
-            /* ===== Helpers ===== */
-            const esc = (s) =>
-                String(s).replace(
-                    /[&<>]/g,
-                    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c],
-                );
-
-            function relativeTime(iso) {
-                const diff = (Date.now() - new Date(iso).getTime()) / 1000;
-                if (diff < 60) return "just now";
-                if (diff < 3600) return Math.floor(diff / 60) + "m ago";
-                if (diff < 86400) return Math.floor(diff / 3600) + "h ago";
-                if (diff < 604800) return Math.floor(diff / 86400) + "d ago";
-                return new Date(iso).toLocaleDateString();
-            }
-
-            function formatISO(iso) {
-                try {
-                    return new Date(iso).toLocaleString();
-                } catch {
-                    return iso;
-                }
-            }
-
-            function getAlgorithm(sig) {
-                if (sig.public_key) {
-                    try {
-                        const parsed = JSON.parse(sig.signature);
-                        if (parsed.identity_token) return "Ed25519 + JWT";
-                    } catch {}
-                    return "Ed25519";
-                }
-                return "HMAC-SHA256";
-            }
-
-            function getSignerLabel(sig) {
-                if (sig.public_key) {
-                    const k = sig.public_key;
-                    return "ed25519:" + k.slice(0, 3) + "…" + k.slice(-3);
-                }
-                return "hmac";
-            }
-
-            function getStatus(sig) {
-                return sig.public_key ? "verified" : "pending";
-            }
-
-            function getStatusLabel(sig) {
-                return sig.public_key ? "verified" : "signed";
-            }
-
-            function shortenHash(h) {
-                return (
-                    '<span class="algo">sha256:</span>' +
-                    h.slice(0, 12) +
-                    "…" +
-                    h.slice(-6)
-                );
-            }
-
-            function truncateSig(s) {
-                if (s.length <= 48) return s;
-                return s.slice(0, 24) + "…" + s.slice(-20);
-            }
-
-            /* deterministic fingerprint swatch */
+            /* ---------- deterministic fingerprint swatch (GitHub-identicon style) ---------- */
             function fpSVG(seed) {
                 let h = 0;
                 for (let i = 0; i < seed.length; i++) {
                     h = (h * 31 + seed.charCodeAt(i)) >>> 0;
                 }
                 const hue = h % 360;
-                const c1 = "hsl(" + hue + " 70% 62%)";
-                const c2 = "hsl(" + ((hue + 38) % 360) + " 65% 48%)";
+                const c1 = `hsl(${hue} 70% 62%)`,
+                    c2 = `hsl(${(hue + 38) % 360} 65% 48%)`;
                 let cells = "";
                 for (let y = 0; y < 5; y++) {
                     for (let x = 0; x < 3; x++) {
                         h = (h * 1103515245 + 12345) >>> 0;
                         if (h & 1) {
                             const col = (h >> 3) & 1 ? c1 : c2;
-                            cells +=
-                                '<rect x="' +
-                                x * 7 +
-                                '" y="' +
-                                y * 7 +
-                                '" width="7" height="7" fill="' +
-                                col +
-                                '"/>';
+                            cells += `<rect x="${x * 7}" y="${y * 7}" width="7" height="7" fill="${col}"/>`;
                             if (x < 2)
-                                cells +=
-                                    '<rect x="' +
-                                    (4 - x) * 7 +
-                                    '" y="' +
-                                    y * 7 +
-                                    '" width="7" height="7" fill="' +
-                                    col +
-                                    '"/>';
+                                cells += `<rect x="${(4 - x) * 7}" y="${y * 7}" width="7" height="7" fill="${col}"/>`;
                         }
                     }
                 }
-                return (
-                    '<svg class="fp" viewBox="-1 -1 37 37">' + cells + "</svg>"
-                );
+                return `<svg class="fp" viewBox="-1 -1 37 37">${cells}</svg>`;
             }
 
-            /* ===== Detail panel ===== */
+            const esc = (s) =>
+                s.replace(
+                    /[&<>]/g,
+                    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c],
+                );
+            const shorten = (h) =>
+                `<span class="algo">sha256:</span>${h.slice(0, 12)}…${h.slice(-6)}`;
+
             function detailHTML(s) {
-                const cell = (k, v, copyVal) =>
-                    '<div class="dcell"><div class="k">' +
-                    k +
-                    '</div><div class="v">' +
-                    esc(v) +
-                    (copyVal
-                        ? ' <span class="copy" data-copy="' +
-                          esc(copyVal) +
-                          '" title="Copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></span>'
-                        : "") +
-                    "</div></div>";
-
-                const algo = getAlgorithm(s);
-                const pk = s.public_key || "—";
-                return (
-                    '<div class="detail" onclick="event.stopPropagation()"><div class="dgrid">' +
-                    cell("full hash", "sha256:" + s.hash, "sha256:" + s.hash) +
-                    cell("public key", pk, s.public_key ? s.public_key : null) +
-                    cell("algorithm", algo) +
-                    cell("signature", truncateSig(s.signature), s.signature) +
-                    cell("signed at", formatISO(s.signed_at)) +
-                    cell("registered at", formatISO(s.registered_at)) +
-                    "</div></div>"
-                );
+                const cell = (k, v, copy) =>
+                    `<div class="dcell"><div class="k">${k}</div><div class="v">${v}${
+                        copy
+                            ? ` <span class="copy" data-copy="${copy}" title="Copy">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></span>`
+                            : ""
+                    }</div></div>`;
+                return `<div class="detail" onclick="event.stopPropagation()"><div class="dgrid">
+    ${cell("full signature", "sha256:" + s.hash, "sha256:" + s.hash)}
+    ${cell("setup digest", s.digest + "…", s.digest)}
+    ${cell("algorithm", s.alg)}
+    ${cell("signer key", s.signer)}
+    ${cell("signed at", s.ts)}
+    ${cell("expires", s.expires)}
+    ${cell("log index", "#" + s.idx)}
+    ${cell("status", s.status)}
+  </div></div>`;
             }
 
-            /* ===== Rendering ===== */
-            function renderRows(list, append) {
+            function render(list) {
                 const rows = document.getElementById("rows");
-                const startIdx = append ? rows.children.length : 0;
                 document.getElementById("count").textContent =
-                    totalCount + " " + (totalCount === 1 ? "entry" : "entries");
-
-                if (!list.length && !append) {
-                    rows.innerHTML =
-                        '<div class="empty">No signatures found.</div>';
+                    `${list.length} ${list.length === 1 ? "entry" : "entries"}`;
+                if (!list.length) {
+                    rows.innerHTML = `<div class="empty">No signature matches that hash in the log.</div>`;
                     return;
                 }
-
-                const html = list
-                    .map((s, i) => {
-                        const idx = startIdx + i;
-                        const statusClass = getStatus(s);
-                        const statusLabel = getStatusLabel(s);
-                        return (
-                            '<div class="row" data-i="' +
-                            idx +
-                            '" style="animation-delay:' +
-                            i * 55 +
-                            'ms">' +
-                            fpSVG(s.hash) +
-                            '<div style="min-width:0">' +
-                            '<div class="hash">' +
-                            shortenHash(s.hash) +
-                            "</div>" +
-                            '<div class="agent">' +
-                            esc(getAlgorithm(s)) +
-                            "</div>" +
-                            "</div>" +
-                            '<div class="signer">' +
-                            esc(getSignerLabel(s)) +
-                            "</div>" +
-                            '<div class="when">' +
-                            esc(relativeTime(s.signed_at)) +
-                            "</div>" +
-                            '<div><span class="badge ' +
-                            statusClass +
-                            '">' +
-                            statusLabel +
-                            "</span></div>" +
-                            detailHTML(s) +
-                            "</div>"
-                        );
-                    })
+                rows.innerHTML = list
+                    .map(
+                        (s, i) => `
+    <div class="row" data-i="${i}" style="animation-delay:${i * 55}ms">
+      ${fpSVG(s.hash)}
+      <div style="min-width:0">
+        <div class="hash">${shorten(s.hash)}</div>
+        <div class="agent">${esc(s.agent)}</div>
+      </div>
+      <div class="signer">${esc(s.signer)}</div>
+      <div class="when">${esc(s.signed)}</div>
+      <div><span class="badge ${s.status}">${s.status}</span></div>
+      ${detailHTML(s)}
+    </div>`,
+                    )
                     .join("");
-
-                if (append) {
-                    rows.insertAdjacentHTML("beforeend", html);
-                } else {
-                    rows.innerHTML = html;
-                }
             }
 
-            function updateStats(sigs) {
-                document.getElementById("stat-total").textContent =
-                    totalCount.toLocaleString();
-
-                const keys = new Set(
-                    sigs.filter((s) => s.public_key).map((s) => s.public_key),
-                );
-                const hmacCount = sigs.filter((s) => !s.public_key).length;
-                document.getElementById("stat-signers").textContent =
-                    keys.size.toLocaleString();
-                document.getElementById("stat-ed25519").textContent = (
-                    sigs.length - hmacCount
-                ).toLocaleString();
-                document.getElementById("stat-hmac").textContent =
-                    hmacCount.toLocaleString();
-            }
-
-            function updateSample() {
-                const el = document.getElementById("sample");
-                if (allSigs.length) {
-                    const h = allSigs[0].hash;
-                    el.textContent = h.slice(0, 10) + "…" + h.slice(-2);
-                } else {
-                    el.textContent = "no data yet";
-                }
-            }
-
-            function updateLoadMore() {
-                const btn = document.getElementById("load-more");
-                btn.style.display =
-                    currentOffset < totalCount ? "block" : "none";
-            }
-
-            /* ===== Interactions ===== */
-            function bindRows() {
+            /* interactions */
+            function bind() {
                 document.querySelectorAll(".row").forEach((r) => {
-                    if (r.dataset.bound) return;
-                    r.dataset.bound = "1";
                     r.addEventListener("click", () => {
-                        const isOpen = r.classList.contains("open");
+                        const open = r.classList.contains("open");
                         document
                             .querySelectorAll(".row.open")
                             .forEach((o) => o.classList.remove("open"));
-                        if (!isOpen) r.classList.add("open");
+                        if (!open) r.classList.add("open");
                     });
                 });
                 document.querySelectorAll(".copy").forEach((c) => {
-                    if (c.dataset.bound) return;
-                    c.dataset.bound = "1";
                     c.addEventListener("click", (e) => {
                         e.stopPropagation();
                         navigator.clipboard
@@ -1118,149 +1033,49 @@
                 tT = setTimeout(() => t.classList.remove("show"), 1600);
             }
 
-            /* ===== API ===== */
-            async function loadRecent(append) {
-                try {
-                    const resp = await fetch(
-                        "/signatures?limit=" +
-                            PAGE +
-                            "&offset=" +
-                            (append ? currentOffset : 0),
-                    );
-                    if (!resp.ok) throw new Error("HTTP " + resp.status);
-                    const data = await resp.json();
-                    totalCount = data.total;
-
-                    if (append) {
-                        allSigs = allSigs.concat(data.signatures);
-                        currentOffset += data.signatures.length;
-                        renderRows(data.signatures, true);
-                    } else {
-                        allSigs = data.signatures;
-                        currentOffset = data.signatures.length;
-                        renderRows(allSigs, false);
-                    }
-
-                    updateStats(allSigs);
-                    updateSample();
-                    updateLoadMore();
-                    bindRows();
-                } catch (err) {
-                    const rows = document.getElementById("rows");
-                    if (!append) {
-                        rows.innerHTML =
-                            '<div class="empty">Could not load signatures.</div>';
-                    }
-                    console.error("loadRecent:", err);
-                }
-            }
-
-            async function lookupHash(hash) {
-                try {
-                    const resp = await fetch(
-                        "/signatures/" + encodeURIComponent(hash),
-                    );
-                    if (resp.status === 404) return [];
-                    if (!resp.ok) throw new Error("HTTP " + resp.status);
-                    return await resp.json();
-                } catch (err) {
-                    console.error("lookupHash:", err);
-                    return [];
-                }
-            }
-
-            /* ===== Search / filter ===== */
-            function isHex(s) {
-                return s.length >= 8 && /^[0-9a-f]+$/i.test(s);
-            }
-
-            function clientFilter(q) {
-                if (!q) return allSigs;
-                return allSigs.filter(
-                    (s) =>
-                        s.hash.toLowerCase().includes(q) ||
-                        (s.public_key &&
-                            s.public_key.toLowerCase().includes(q)) ||
-                        getAlgorithm(s).toLowerCase().includes(q),
-                );
-            }
-
-            async function doSearch(openFirst) {
-                const raw = document
+            function filter() {
+                const q = document
                     .getElementById("q")
                     .value.trim()
                     .toLowerCase()
                     .replace(/^sha256:/, "");
-                if (!raw) {
-                    /* reset to full list */
-                    totalCount = allSigs.length || totalCount;
-                    renderRows(allSigs, false);
-                    updateLoadMore();
-                    bindRows();
-                    return;
-                }
-
-                let results;
-                if (isHex(raw)) {
-                    /* try exact server lookup first, then fall back to client filter */
-                    const serverResults = await lookupHash(raw);
-                    if (serverResults.length) {
-                        results = serverResults;
-                    } else {
-                        results = clientFilter(raw);
-                    }
-                } else {
-                    results = clientFilter(raw);
-                }
-
-                const prevTotal = totalCount;
-                totalCount = results.length;
-                renderRows(results, false);
-                totalCount = prevTotal; /* restore real total */
-                document.getElementById("count").textContent =
-                    results.length +
-                    " " +
-                    (results.length === 1 ? "match" : "matches");
-                document.getElementById("load-more").style.display = "none";
-                bindRows();
-
-                if (openFirst && results.length) {
-                    const first = document.querySelector(".row");
-                    if (first) {
-                        first.classList.add("open");
-                        first.scrollIntoView({
-                            behavior: "smooth",
-                            block: "center",
-                        });
-                    }
-                }
+                const list = q
+                    ? DATA.filter(
+                          (s) =>
+                              s.hash.includes(q) ||
+                              s.agent.toLowerCase().includes(q) ||
+                              s.signer.toLowerCase().includes(q),
+                      )
+                    : DATA;
+                render(list);
+                bind();
             }
 
-            /* ===== Init ===== */
             const qEl = document.getElementById("q");
-            qEl.addEventListener("input", () => doSearch(false));
-            qEl.addEventListener("keydown", (e) => {
-                if (e.key === "Enter") doSearch(true);
+            qEl.addEventListener("input", filter);
+            document.getElementById("lookup").addEventListener("click", () => {
+                filter();
+                const first = document.querySelector(".row");
+                if (first && qEl.value.trim()) {
+                    first.classList.add("open");
+                    first.scrollIntoView({
+                        behavior: "smooth",
+                        block: "center",
+                    });
+                }
             });
-
-            document
-                .getElementById("lookup")
-                .addEventListener("click", () => doSearch(true));
-
             document.getElementById("sample").addEventListener("click", () => {
-                if (!allSigs.length) return;
-                qEl.value = allSigs[0].hash;
-                doSearch(true);
+                qEl.value = DATA[0].hash;
+                filter();
+                const first = document.querySelector(".row");
+                if (first) first.classList.add("open");
+                document
+                    .getElementById("recent")
+                    .scrollIntoView({ behavior: "smooth" });
             });
 
-            document
-                .getElementById("load-more")
-                .addEventListener("click", () => {
-                    loadRecent(true);
-                });
-
-            /* initial load */
-            loadRecent(false);
+            render(DATA);
+            bind();
         </script>
     </body>
 </html>
