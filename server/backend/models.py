@@ -63,6 +63,10 @@ class SignatureResponse(BaseModel):
     # None = no components submitted; True/False = re-derived hash (mis)matched.
     components_verified: bool | None = None
     summary: SetupSummary | None = None
+    # Google-authenticated submitter (bound via a personal upload token).
+    submitter_email: str | None = None
+    submitter_name: str | None = None
+    submitter_verified: bool | None = None
 
 
 class SignatureListResponse(BaseModel):

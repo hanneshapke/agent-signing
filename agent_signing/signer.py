@@ -97,6 +97,8 @@ class VerificationResult:
     valid: bool
     reason: str
     identity: dict[str, Any] | None = field(default=None)
+    # The matched registry record, when verified via ``verify_from_registry()``.
+    record: dict[str, Any] | None = field(default=None)
 
     def __bool__(self) -> bool:
         return self.valid
@@ -261,6 +263,7 @@ class AgentSigner:
         registry_url: str,
         path: str | Path | None = None,
         include_components: bool = False,
+        token: str | None = None,
     ) -> dict[str, Any]:
         """Publish a signature record to a registry server.
 
@@ -274,6 +277,9 @@ class AgentSigner:
         include_components : bool
             When signing on-the-fly, include the signed components so the
             registry can verify and summarise them.
+        token : str | None
+            Personal registry token (minted after Google sign-in).  When
+            given, the registry binds the record to your verified identity.
 
         Returns
         -------
@@ -297,13 +303,16 @@ class AgentSigner:
 
         url = registry_url.rstrip("/") + "/signatures"
         data = json.dumps(record).encode()
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "agent-signing/0.1.3",
+        }
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
         req = urllib.request.Request(
             url,
             data=data,
-            headers={
-                "Content-Type": "application/json",
-                "User-Agent": "agent-signing/0.1.3",
-            },
+            headers=headers,
             method="POST",
         )
         try:
@@ -359,6 +368,145 @@ class AgentSigner:
         if hmac.compare_digest(current, signature):
             return VerificationResult(valid=True, reason="Signature valid.")
         return VerificationResult(valid=False, reason="Signature mismatch — agent setup has changed.")
+
+    def verify_from_registry(
+        self,
+        registry_url: str,
+        timeout: float = 10,
+    ) -> VerificationResult:
+        """Verify the current setup against the approved signature in a registry.
+
+        The network counterpart to :meth:`verify_file`: instead of reading the
+        approved signature from a local file, it is fetched from the shared
+        registry.  This verifier's aggregate hash is computed from the tools and
+        agents added to it, the signature record(s) registered for that exact
+        hash are fetched from ``registry_url`` (``GET /signatures/{hash}``), and
+        the setup is checked against them using the same logic as
+        :meth:`verify`.  A tampered setup hashes to a different value, for which
+        no signature is registered, so the lookup itself returns nothing.
+
+        Trust is anchored in the material held by *this* verifier, never in the
+        fetched record:
+
+        - **Ed25519** (``public_key`` set): the registered signature must
+          validate against the pinned public key.  A record signed by any other
+          key — e.g. one an attacker self-published for a tampered setup — is
+          rejected.
+        - **HMAC** (``secret`` set): the registered signature must match an HMAC
+          recomputed with the shared secret.
+        - **Neither**: only confirms that a signature for this exact setup is
+          registered; the signer is *not* authenticated.
+
+        Parameters
+        ----------
+        registry_url : str
+            Base URL of the registry (e.g. ``"http://localhost:8000"``).
+        timeout : float
+            Per-request timeout in seconds.
+
+        Returns
+        -------
+        VerificationResult
+            ``valid`` is True only if a registered signature passes the checks
+            above.  On success ``record`` holds the matched registry record (so
+            the caller can inspect the signer, timestamps, and submitter) and
+            ``identity`` holds any decoded JWT identity.
+
+        Raises
+        ------
+        ConnectionError
+            If the registry is unreachable.
+        ValueError
+            If the registry returns an unexpected error.
+        """
+        aggregate = self._compute_aggregate()
+        records = self._fetch_registry_records(registry_url, aggregate, timeout)
+
+        if not records:
+            return VerificationResult(
+                valid=False,
+                reason=(
+                    "No signature registered for this agent setup — it was "
+                    "never published or has changed since signing."
+                ),
+            )
+
+        last_failure: VerificationResult | None = None
+        for record in records:
+            signature = record.get("signature")
+            if not signature:
+                continue
+            result = self.verify(signature)
+            if result.valid:
+                return VerificationResult(
+                    valid=True,
+                    reason=self._registry_success_reason(),
+                    identity=result.identity,
+                    record=record,
+                )
+            last_failure = result
+
+        return VerificationResult(
+            valid=False,
+            reason=(
+                last_failure.reason
+                if last_failure is not None
+                else "Registry returned no usable signature for this setup."
+            ),
+        )
+
+    def _fetch_registry_records(
+        self,
+        registry_url: str,
+        hash_value: str,
+        timeout: float,
+    ) -> list[dict[str, Any]]:
+        """GET the signature records registered for ``hash_value``.
+
+        Returns an empty list when the registry has no record for the hash
+        (HTTP 404).  Mirrors :meth:`publish`'s error handling otherwise.
+        """
+        import urllib.error
+        import urllib.request
+
+        url = registry_url.rstrip("/") + "/signatures/" + hash_value
+        req = urllib.request.Request(
+            url,
+            headers={
+                "Accept": "application/json",
+                "User-Agent": "agent-signing/0.1.3",
+            },
+            method="GET",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                data = json.loads(resp.read().decode())
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:
+                return []
+            body = exc.read().decode() if exc.fp else ""
+            raise ValueError(
+                f"Registry lookup failed ({exc.code}): {body}"
+            ) from exc
+        except urllib.error.URLError as exc:
+            raise ConnectionError(
+                f"Cannot reach registry at {registry_url}: {exc.reason}"
+            ) from exc
+
+        if isinstance(data, dict):  # defensive: single-record shape
+            return [data]
+        return data if isinstance(data, list) else []
+
+    def _registry_success_reason(self) -> str:
+        """Describe a successful registry verification, scoped to the mode."""
+        if self._public_key:
+            return "Verified against the registered Ed25519 signature."
+        if self._secret:
+            return "Verified against the registered HMAC signature."
+        return (
+            "Setup matches a registered signature, but the signer was not "
+            "authenticated (no public key or secret provided)."
+        )
 
     # ------------------------------------------------------------------
     # Extraction — duck-typed framework detection

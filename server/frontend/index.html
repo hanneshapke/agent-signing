@@ -773,6 +773,145 @@
                 background: rgba(26, 26, 26, 0.06);
             }
 
+            /* verified-submitter check in a row */
+            .vchk {
+                color: var(--verified);
+                font-weight: 700;
+                margin-left: 5px;
+            }
+
+            /* account / Google sign-in */
+            .account {
+                position: relative;
+                display: flex;
+                align-items: center;
+            }
+            .signin,
+            .acct-btn {
+                display: inline-flex;
+                align-items: center;
+                gap: 7px;
+                font-family: var(--mono);
+                font-size: 12px;
+                color: var(--text);
+                background: var(--bg-elev);
+                border: 1px solid var(--line);
+                border-radius: 8px;
+                padding: 6px 11px;
+                cursor: pointer;
+                text-decoration: none;
+                max-width: 190px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .signin:hover,
+            .acct-btn:hover {
+                border-color: var(--accent);
+            }
+            .signin svg {
+                width: 15px;
+                height: 15px;
+                flex: none;
+            }
+            .acct-menu {
+                position: absolute;
+                top: calc(100% + 8px);
+                right: 0;
+                width: 280px;
+                background: var(--bg-elev);
+                border: 1px solid var(--line);
+                border-radius: 12px;
+                box-shadow: 0 12px 32px rgba(26, 26, 26, 0.16);
+                padding: 14px;
+                z-index: 40;
+            }
+            .acct-menu[hidden] {
+                display: none;
+            }
+            .acct-email {
+                font-family: var(--mono);
+                font-size: 12.5px;
+                font-weight: 600;
+                word-break: break-all;
+                margin-bottom: 6px;
+            }
+            .acct-hint {
+                font-size: 11px;
+                color: var(--text-dim);
+                line-height: 1.45;
+                margin-bottom: 11px;
+            }
+            .acct-action {
+                width: 100%;
+                font-family: var(--sans);
+                font-size: 13px;
+                font-weight: 600;
+                border: none;
+                border-radius: 8px;
+                padding: 9px;
+                cursor: pointer;
+                background: var(--accent);
+                color: var(--accent-ink);
+            }
+            .acct-action:hover {
+                filter: brightness(1.05);
+            }
+            .acct-action.danger {
+                background: var(--bg-elev-2);
+                color: var(--text-dim);
+                border: 1px solid var(--line-soft);
+                margin-top: 10px;
+            }
+            .token-out {
+                margin-top: 11px;
+                padding: 10px;
+                border-radius: 8px;
+                background: var(--bg-tint);
+                border: 1px solid var(--line);
+                font-family: var(--mono);
+                font-size: 11px;
+                line-height: 1.5;
+                word-break: break-all;
+            }
+            .token-out[hidden] {
+                display: none;
+            }
+            .token-out code {
+                display: block;
+                margin-top: 5px;
+                color: var(--accent-strong);
+            }
+            .token-list {
+                margin-top: 8px;
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            }
+            .token-list:empty {
+                display: none;
+            }
+            .tok {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 8px;
+                font-family: var(--mono);
+                font-size: 11.5px;
+                color: var(--text-dim);
+            }
+            .tok-revoke {
+                border: none;
+                background: none;
+                color: var(--revoked);
+                font-family: var(--mono);
+                font-size: 11px;
+                cursor: pointer;
+            }
+            .tok-revoke:hover {
+                text-decoration: underline;
+            }
+
             .empty {
                 padding: 48px 20px;
                 text-align: center;
@@ -900,6 +1039,56 @@
                         <span class="status"
                             ><span class="dot"></span>operational</span
                         >
+                        <div class="account" id="account" style="display: none">
+                            <a class="signin" id="signin" href="/auth/login">
+                                <svg viewBox="0 0 18 18" aria-hidden="true">
+                                    <path
+                                        fill="#4285F4"
+                                        d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.71-1.57 2.68-3.89 2.68-6.62z"
+                                    />
+                                    <path
+                                        fill="#34A853"
+                                        d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"
+                                    />
+                                    <path
+                                        fill="#FBBC05"
+                                        d="M3.97 10.72a5.4 5.4 0 0 1 0-3.44V4.95H.96a9 9 0 0 0 0 8.1z"
+                                    />
+                                    <path
+                                        fill="#EA4335"
+                                        d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.95L3.97 7.3C4.68 5.18 6.66 3.58 9 3.58z"
+                                    />
+                                </svg>
+                                Sign in
+                            </a>
+                            <button
+                                class="acct-btn"
+                                id="acct-btn"
+                                style="display: none"
+                            ></button>
+                            <div class="acct-menu" id="acct-menu" hidden>
+                                <div class="acct-email" id="acct-email"></div>
+                                <p class="acct-hint">
+                                    Mint a token for the CLI/SDK to publish
+                                    under your verified identity.
+                                </p>
+                                <button class="acct-action" id="mint-btn">
+                                    Create upload token
+                                </button>
+                                <div
+                                    class="token-out"
+                                    id="token-out"
+                                    hidden
+                                ></div>
+                                <div class="token-list" id="token-list"></div>
+                                <button
+                                    class="acct-action danger"
+                                    id="signout-btn"
+                                >
+                                    Sign out
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </nav>
             </div>
@@ -914,7 +1103,7 @@
                 ></span>
                 <h1>
                     Verify any agent<br /><span class="mute"
-                        >setup signature.</span
+                        >with a trusted signature.</span
                     >
                 </h1>
                 <p class="sub">
@@ -1104,8 +1293,7 @@
             function base64ToBytes(b64) {
                 const bin = atob(b64);
                 const out = new Uint8Array(bin.length);
-                for (let i = 0; i < bin.length; i++)
-                    out[i] = bin.charCodeAt(i);
+                for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
                 return out;
             }
 
@@ -1144,9 +1332,7 @@
                                     state: "invalid",
                                     reason: "signature is not 64 bytes",
                                 };
-                            } else if (
-                                !(window.crypto && crypto.subtle)
-                            ) {
+                            } else if (!(window.crypto && crypto.subtle)) {
                                 res = { state: "unsupported" };
                             } else {
                                 const msg = new TextEncoder().encode(sig.hash);
@@ -1253,7 +1439,10 @@
             function humanDuration(ms) {
                 const s = Math.abs(ms) / 1000;
                 const r = (n, unit) =>
-                    Math.round(n) + " " + unit + (Math.round(n) === 1 ? "" : "s");
+                    Math.round(n) +
+                    " " +
+                    unit +
+                    (Math.round(n) === 1 ? "" : "s");
                 if (s < 1) return "under a second";
                 if (s < 60) return r(s, "second");
                 if (s < 3600) return r(s / 60, "minute");
@@ -1444,7 +1633,9 @@
                               ")</span>"
                             : "";
                         const desc = t.description
-                            ? '<div class="sub2">' + esc(t.description) + "</div>"
+                            ? '<div class="sub2">' +
+                              esc(t.description) +
+                              "</div>"
                             : "";
                         return (
                             '<li><span class="nm">' +
@@ -1467,7 +1658,9 @@
                                   "</span>"
                                 : "";
                         const goal = a.goal
-                            ? '<div class="sub2">goal: ' + esc(a.goal) + "</div>"
+                            ? '<div class="sub2">goal: ' +
+                              esc(a.goal) +
+                              "</div>"
                             : "";
                         const llm = a.llm
                             ? '<div class="sub2">llm: ' + esc(a.llm) + "</div>"
@@ -1565,6 +1758,17 @@
                     esc(lat.text) +
                     "</div></div>";
 
+                /* Google-verified submitter (authenticated by the registry) */
+                let submitterCell = "";
+                if (s.submitter_verified && s.submitter_email) {
+                    submitterCell =
+                        '<div class="dcell"><div class="k">submitter</div>' +
+                        '<div class="v">' +
+                        esc(s.submitter_email) +
+                        ' <span class="vstamp ok">✓ Google-verified</span>' +
+                        "</div></div>";
+                }
+
                 /* self-declared signer metadata (not covered by the signature) */
                 let metaCells = "";
                 if (s.name)
@@ -1591,9 +1795,7 @@
                     if (id.aud)
                         idCells += cell(
                             "audience",
-                            Array.isArray(id.aud)
-                                ? id.aud.join(", ")
-                                : id.aud,
+                            Array.isArray(id.aud) ? id.aud.join(", ") : id.aud,
                         );
                     if (id.sub && id.sub !== who)
                         idCells += cell("subject", id.sub);
@@ -1627,6 +1829,7 @@
                     cell("signed at", formatISO(s.signed_at)) +
                     cell("registered at", formatISO(s.registered_at)) +
                     latCell +
+                    submitterCell +
                     metaCells +
                     idCells +
                     "</div>" +
@@ -1679,7 +1882,7 @@
                     total +
                     "</b> signatures" +
                     from +
-                    ".<span class=\"sub\">Independent signatures on the same hash reinforce trust — each line below is a separate endorsement.</span></span>";
+                    '.<span class="sub">Independent signatures on the same hash reinforce trust — each line below is a separate endorsement.</span></span>';
                 el.style.display = "flex";
             }
 
@@ -1719,6 +1922,11 @@
                             "</div>" +
                             '<div class="signer">' +
                             esc(getSignerLabel(s)) +
+                            (s.submitter_verified
+                                ? ' <span class="vchk" title="Google-verified submitter: ' +
+                                  esc(s.submitter_email || "") +
+                                  '">✓</span>'
+                                : "") +
                             "</div>" +
                             '<div class="when">' +
                             esc(relativeTime(s.signed_at)) +
@@ -1939,6 +2147,131 @@
                 }
             }
 
+            /* ===== Account / Google sign-in ===== */
+            let authState = { enabled: false, user: null };
+
+            async function loadAuth() {
+                try {
+                    const r = await fetch("/auth/me");
+                    authState = await r.json();
+                } catch {
+                    authState = { enabled: false, user: null };
+                }
+                renderAccount();
+            }
+
+            function renderAccount() {
+                const acct = document.getElementById("account");
+                if (!acct) return;
+                if (!authState.enabled) {
+                    acct.style.display = "none";
+                    return;
+                }
+                acct.style.display = "flex";
+                const signin = document.getElementById("signin");
+                const btn = document.getElementById("acct-btn");
+                const menu = document.getElementById("acct-menu");
+                if (authState.user) {
+                    signin.style.display = "none";
+                    btn.style.display = "inline-flex";
+                    btn.textContent = authState.user.email;
+                    document.getElementById("acct-email").textContent =
+                        authState.user.email;
+                } else {
+                    signin.style.display = "inline-flex";
+                    btn.style.display = "none";
+                    menu.hidden = true;
+                }
+            }
+
+            async function loadTokens() {
+                const el = document.getElementById("token-list");
+                try {
+                    const r = await fetch("/auth/tokens");
+                    if (!r.ok) {
+                        el.innerHTML = "";
+                        return;
+                    }
+                    const list = await r.json();
+                    el.innerHTML = list
+                        .map(
+                            (t) =>
+                                '<div class="tok"><span>' +
+                                esc(t.prefix) +
+                                "…" +
+                                (t.label ? " (" + esc(t.label) + ")" : "") +
+                                '</span><button class="tok-revoke" data-id="' +
+                                t.id +
+                                '">revoke</button></div>',
+                        )
+                        .join("");
+                    el.querySelectorAll(".tok-revoke").forEach((b) => {
+                        b.addEventListener("click", async () => {
+                            await fetch("/auth/tokens/" + b.dataset.id, {
+                                method: "DELETE",
+                            });
+                            loadTokens();
+                        });
+                    });
+                } catch {
+                    el.innerHTML = "";
+                }
+            }
+
+            async function mintToken() {
+                try {
+                    const r = await fetch("/auth/tokens", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ label: "cli" }),
+                    });
+                    if (!r.ok) return;
+                    const t = await r.json();
+                    const out = document.getElementById("token-out");
+                    out.hidden = false;
+                    out.innerHTML =
+                        "Copy now — shown only once:<code>" +
+                        esc(t.token) +
+                        "</code>";
+                    navigator.clipboard
+                        ?.writeText(t.token)
+                        .then(toast)
+                        .catch(() => {});
+                    loadTokens();
+                } catch {}
+            }
+
+            function initAccount() {
+                const btn = document.getElementById("acct-btn");
+                const menu = document.getElementById("acct-menu");
+                if (btn)
+                    btn.addEventListener("click", () => {
+                        const wasOpen = !menu.hidden;
+                        menu.hidden = wasOpen;
+                        if (!wasOpen) loadTokens();
+                    });
+                const mint = document.getElementById("mint-btn");
+                if (mint) mint.addEventListener("click", mintToken);
+                const signout = document.getElementById("signout-btn");
+                if (signout)
+                    signout.addEventListener("click", async () => {
+                        await fetch("/auth/logout", { method: "POST" });
+                        location.reload();
+                    });
+                document.addEventListener("click", (e) => {
+                    const acct = document.getElementById("account");
+                    if (
+                        menu &&
+                        !menu.hidden &&
+                        acct &&
+                        !acct.contains(e.target)
+                    ) {
+                        menu.hidden = true;
+                    }
+                });
+                loadAuth();
+            }
+
             /* ===== Init ===== */
             const qEl = document.getElementById("q");
             qEl.addEventListener("input", () => doSearch(false));
@@ -1964,6 +2297,7 @@
 
             /* initial load */
             loadRecent(false);
+            initAccount();
         </script>
     </body>
 </html>

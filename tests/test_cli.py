@@ -173,6 +173,40 @@ class TestVerify:
         with pytest.raises(SystemExit):
             main(["verify", str(manifest_file), "-s", str(tmp_path / "nonexistent.json")])
 
+    def test_verify_from_registry_passes(self, monkeypatch, manifest_file):
+        from agent_signing.signer import AgentSigner, VerificationResult
+
+        def fake_verify(self, registry_url, timeout=10):
+            return VerificationResult(
+                valid=True,
+                reason="Verified against the registered Ed25519 signature.",
+                record={"public_key": "abcd", "signed_at": "2026-01-01T00:00:00+00:00"},
+            )
+
+        monkeypatch.setattr(AgentSigner, "verify_from_registry", fake_verify)
+        # No signature file needed when fetching from the registry.
+        main(["verify", str(manifest_file), "--registry-url", "http://localhost:8000"])
+
+    def test_verify_from_registry_fails(self, monkeypatch, manifest_file):
+        from agent_signing.signer import AgentSigner, VerificationResult
+
+        def fake_verify(self, registry_url, timeout=10):
+            return VerificationResult(valid=False, reason="No signature registered.")
+
+        monkeypatch.setattr(AgentSigner, "verify_from_registry", fake_verify)
+        with pytest.raises(SystemExit):
+            main(["verify", str(manifest_file), "--registry-url", "http://localhost:8000"])
+
+    def test_verify_from_registry_unreachable(self, monkeypatch, manifest_file):
+        from agent_signing.signer import AgentSigner
+
+        def fake_verify(self, registry_url, timeout=10):
+            raise ConnectionError("Cannot reach registry")
+
+        monkeypatch.setattr(AgentSigner, "verify_from_registry", fake_verify)
+        with pytest.raises(SystemExit):
+            main(["verify", str(manifest_file), "--registry-url", "http://localhost:1"])
+
 
 class TestUpload:
     def test_upload_missing_signature_file(self, tmp_path):

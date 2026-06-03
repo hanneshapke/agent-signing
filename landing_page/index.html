@@ -932,7 +932,7 @@ signer.<span class="fn">publish</span>(
         </li>
         <li>
           <span class="verify-check">&#10003;</span>
-          <span>Query the registry server by hash to inspect any published signature</span>
+          <span>Fetch the approved signature straight from the registry — no local file needed</span>
         </li>
       </ul>
     </div>
@@ -961,8 +961,11 @@ result = verifier.<span class="fn">verify_file</span>(
 <span class="kw">else</span>:
     print(f<span class="st">"&#10007; {result.reason}"</span>)
 
-<span class="cm"># Or look up a published signature</span>
-<span class="cm"># GET /signatures/{hash}</span></div>
+<span class="cm"># Or fetch the approved signature</span>
+<span class="cm"># straight from the registry</span>
+result = verifier.<span class="fn">verify_from_registry</span>(
+    <span class="st">"http://registry:8000"</span>
+)</div>
     </div>
   </div>
 </section>
