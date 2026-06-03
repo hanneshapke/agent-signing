@@ -92,8 +92,15 @@ class TestSign:
 
     def test_sign_with_identity_token(self, tmp_path, manifest_file):
         import base64
-        header = base64.urlsafe_b64encode(json.dumps({"alg": "none"}).encode()).rstrip(b"=").decode()
-        payload = base64.urlsafe_b64encode(json.dumps({"sub": "user@test.com"}).encode()).rstrip(b"=").decode()
+
+        header = (
+            base64.urlsafe_b64encode(json.dumps({"alg": "none"}).encode()).rstrip(b"=").decode()
+        )
+        payload = (
+            base64.urlsafe_b64encode(json.dumps({"sub": "user@test.com"}).encode())
+            .rstrip(b"=")
+            .decode()
+        )
         token = f"{header}.{payload}.fakesig"
 
         output = tmp_path / "sig.json"
@@ -143,9 +150,13 @@ class TestVerify:
 
         # Create a different manifest
         different = tmp_path / "different.json"
-        different.write_text(json.dumps({
-            "tools": [{"name": "other", "description": "Different tool", "parameters": {}}],
-        }))
+        different.write_text(
+            json.dumps(
+                {
+                    "tools": [{"name": "other", "description": "Different tool", "parameters": {}}],
+                }
+            )
+        )
 
         with pytest.raises(SystemExit):
             main(["verify", str(different), "-s", str(output)])
@@ -167,7 +178,16 @@ class TestVerify:
         other_pub_path.write_text(other_pub.hex())
 
         with pytest.raises(SystemExit):
-            main(["verify", str(manifest_file), "-s", str(output), "--public-key", str(other_pub_path)])
+            main(
+                [
+                    "verify",
+                    str(manifest_file),
+                    "-s",
+                    str(output),
+                    "--public-key",
+                    str(other_pub_path),
+                ]
+            )
 
     def test_verify_missing_signature_file(self, tmp_path, manifest_file):
         with pytest.raises(SystemExit):

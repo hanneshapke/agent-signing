@@ -1,0 +1,73 @@
+name: Release on tag
+
+# Triggered when a version tag (vX.Y.Z) is pushed. The version bump itself is
+# performed by commitizen *locally* by the maintainer, who then pushes the
+# resulting commit and tag together:
+#
+#     cz bump            # bumps pyproject.toml, updates CHANGELOG, creates tag
+#     git push --follow-tags
+#
+# On that tag push this workflow extracts the changelog section for the tag and
+# creates a GitHub Release. The published Release triggers release.yml, which
+# builds and publishes the package to PyPI.
+#
+# It authenticates as a GitHub App so the Release it creates starts release.yml
+# (events created with the default GITHUB_TOKEN do not start new workflow runs).
+# Create a GitHub App with "Contents: read & write", install it on this repo,
+# then store its App ID as the CZ_APP_ID repository variable and its private key
+# as the CZ_APP_PRIVATE_KEY secret. Without them the Release is still created
+# via GITHUB_TOKEN, but you must publish it manually to trigger release.yml.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    name: Create GitHub Release
+
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        if: ${{ vars.CZ_APP_ID != '' }}
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        with:
+          app-id: ${{ vars.CZ_APP_ID }}
+          private-key: ${{ secrets.CZ_APP_PRIVATE_KEY }}
+
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          enable-cache: true
+
+      - name: Extract changelog for tag
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          uvx --from commitizen cz changelog "$version" --dry-run > _changelog_increment.md || true
+          if [ ! -s _changelog_increment.md ]; then
+            echo "Release ${GITHUB_REF_NAME}" > _changelog_increment.md
+          fi
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --notes-file _changelog_increment.md

@@ -41,9 +41,7 @@ def aggregate_hash(components: list[dict[str, Any]]) -> str:
     signed hash — proving *which* tools and agents were signed.
     """
     component_hashes = sorted(
-        hashlib.sha256(
-            json.dumps(c, sort_keys=True, default=str).encode()
-        ).hexdigest()
+        hashlib.sha256(json.dumps(c, sort_keys=True, default=str).encode()).hexdigest()
         for c in components
     )
     h = hashlib.sha256()
@@ -209,10 +207,14 @@ class AgentSigner:
         """Hex-encoded public key, derived from the private or public key."""
         if self._private_key:
             key = Ed25519PrivateKey.from_private_bytes(self._private_key)
-            return key.public_key().public_bytes(
-                serialization.Encoding.Raw,
-                serialization.PublicFormat.Raw,
-            ).hex()
+            return (
+                key.public_key()
+                .public_bytes(
+                    serialization.Encoding.Raw,
+                    serialization.PublicFormat.Raw,
+                )
+                .hex()
+            )
         if self._public_key:
             return self._public_key.hex()
         return None
@@ -320,13 +322,9 @@ class AgentSigner:
                 return json.loads(resp.read().decode())
         except urllib.error.HTTPError as exc:
             body = exc.read().decode() if exc.fp else ""
-            raise ValueError(
-                f"Registry rejected submission ({exc.code}): {body}"
-            ) from exc
+            raise ValueError(f"Registry rejected submission ({exc.code}): {body}") from exc
         except urllib.error.URLError as exc:
-            raise ConnectionError(
-                f"Cannot reach registry at {registry_url}: {exc.reason}"
-            ) from exc
+            raise ConnectionError(f"Cannot reach registry at {registry_url}: {exc.reason}") from exc
 
     @staticmethod
     def load_signature_file(path: str | Path) -> dict[str, Any]:
@@ -367,7 +365,9 @@ class AgentSigner:
         current = self._compute_signature_value(aggregate)
         if hmac.compare_digest(current, signature):
             return VerificationResult(valid=True, reason="Signature valid.")
-        return VerificationResult(valid=False, reason="Signature mismatch — agent setup has changed.")
+        return VerificationResult(
+            valid=False, reason="Signature mismatch — agent setup has changed."
+        )
 
     def verify_from_registry(
         self,
@@ -485,13 +485,9 @@ class AgentSigner:
             if exc.code == 404:
                 return []
             body = exc.read().decode() if exc.fp else ""
-            raise ValueError(
-                f"Registry lookup failed ({exc.code}): {body}"
-            ) from exc
+            raise ValueError(f"Registry lookup failed ({exc.code}): {body}") from exc
         except urllib.error.URLError as exc:
-            raise ConnectionError(
-                f"Cannot reach registry at {registry_url}: {exc.reason}"
-            ) from exc
+            raise ConnectionError(f"Cannot reach registry at {registry_url}: {exc.reason}") from exc
 
         if isinstance(data, dict):  # defensive: single-record shape
             return [data]

@@ -46,7 +46,8 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Path to a JSON manifest describing tools and agents.",
     )
     sign_p.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         default="agent_signature.json",
         help="Output signature file path (default: agent_signature.json).",
     )
@@ -73,8 +74,7 @@ def _build_parser() -> argparse.ArgumentParser:
     sign_p.add_argument(
         "--include-components",
         action="store_true",
-        help="Embed the signed tool/agent components so a registry can verify "
-        "and display them.",
+        help="Embed the signed tool/agent components so a registry can verify and display them.",
     )
 
     # --- verify ---
@@ -87,7 +87,8 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Path to a JSON manifest describing tools and agents.",
     )
     verify_p.add_argument(
-        "-s", "--signature-file",
+        "-s",
+        "--signature-file",
         default="agent_signature.json",
         help="Signature file to verify against (default: agent_signature.json).",
     )
@@ -115,7 +116,8 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Base URL of the registry server (e.g. http://localhost:8000).",
     )
     upload_p.add_argument(
-        "-s", "--signature-file",
+        "-s",
+        "--signature-file",
         default="agent_signature.json",
         help="Signature file to upload (default: agent_signature.json).",
     )
@@ -156,7 +158,10 @@ def _load_manifest(path: str) -> dict:
         sys.exit(1)
 
     if not isinstance(data, dict):
-        print("Error: manifest must be a JSON object with 'tools' and/or 'agents' keys.", file=sys.stderr)
+        print(
+            "Error: manifest must be a JSON object with 'tools' and/or 'agents' keys.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     tools = data.get("tools", [])

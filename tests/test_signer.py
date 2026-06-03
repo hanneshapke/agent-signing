@@ -15,8 +15,17 @@ def _make_jwt(claims: dict) -> str:
 
 
 TOOL_SEARCH = {"name": "search", "description": "Search the web", "parameters": {"query": "str"}}
-TOOL_CALC = {"name": "calculator", "description": "Evaluate math", "parameters": {"expression": "str"}}
-AGENT_RESEARCHER = {"name": "researcher", "role": "Researcher", "goal": "Find info", "tools": ["search"]}
+TOOL_CALC = {
+    "name": "calculator",
+    "description": "Evaluate math",
+    "parameters": {"expression": "str"},
+}
+AGENT_RESEARCHER = {
+    "name": "researcher",
+    "role": "Researcher",
+    "goal": "Find info",
+    "tools": ["search"],
+}
 
 
 class TestSigning:
@@ -612,9 +621,7 @@ class TestRegistryFetch:
         import urllib.request
 
         def fake_urlopen(req, timeout=None):
-            raise urllib.error.HTTPError(
-                req.full_url, 500, "Server Error", {}, io.BytesIO(b"boom")
-            )
+            raise urllib.error.HTTPError(req.full_url, 500, "Server Error", {}, io.BytesIO(b"boom"))
 
         monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
 
