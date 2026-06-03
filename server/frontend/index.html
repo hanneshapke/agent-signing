@@ -12,20 +12,24 @@
         />
         <style>
             :root {
-                --bg: #0a0c0f;
-                --bg-elev: #10141a;
-                --bg-elev-2: #161b22;
-                --line: #222a35;
-                --line-soft: #1a212a;
-                --text: #e7ebf1;
-                --text-dim: #8a93a3;
-                --text-faint: #586071;
-                --accent: #c6f135;
-                --accent-ink: #0a0c0f;
-                --accent-glow: rgba(198, 241, 53, 0.14);
-                --verified: #5fd38a;
-                --pending: #e8c468;
-                --revoked: #f0726a;
+                --bg: #f8f4e4;
+                --bg-elev: #fffef9;
+                --bg-elev-2: #eafaf4;
+                --bg-tint: #c7fff1;
+                --line: rgba(26, 26, 26, 0.12);
+                --line-soft: rgba(26, 26, 26, 0.07);
+                --text: #1a1a1a;
+                --text-dim: rgba(26, 26, 26, 0.6);
+                --text-faint: rgba(26, 26, 26, 0.42);
+                --accent: #3edab2;
+                --accent-strong: #149e7f;
+                --accent-ink: #1a1a1a;
+                --accent-glow: rgba(62, 218, 178, 0.18);
+                --verified: #12a07e;
+                --pending: #b07d24;
+                --revoked: #d65a52;
+                --blue: #7092f2;
+                --blue-soft: #9bb3f6;
                 --radius: 14px;
                 --mono:
                     "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo,
@@ -114,7 +118,7 @@
                 position: sticky;
                 top: 0;
                 z-index: 20;
-                background: rgba(10, 12, 15, 0.72);
+                background: rgba(248, 244, 228, 0.78);
                 backdrop-filter: blur(12px);
                 -webkit-backdrop-filter: blur(12px);
             }
@@ -229,7 +233,7 @@
                 font-size: 11.5px;
                 letter-spacing: 0.22em;
                 text-transform: uppercase;
-                color: var(--accent);
+                color: var(--accent-strong);
                 display: inline-flex;
                 align-items: center;
                 gap: 9px;
@@ -340,8 +344,8 @@
                 border-bottom: 1px dashed var(--line);
             }
             .hint b:hover {
-                color: var(--accent);
-                border-color: var(--accent);
+                color: var(--accent-strong);
+                border-color: var(--accent-strong);
             }
 
             /* ---------- stats strip ---------- */
@@ -356,7 +360,7 @@
                 margin: 8px 0 56px;
             }
             .stat {
-                background: var(--bg);
+                background: var(--bg-elev);
                 padding: 18px 20px;
             }
             .stat .n {
@@ -366,7 +370,7 @@
                 letter-spacing: -0.02em;
             }
             .stat .n .u {
-                color: var(--accent);
+                color: var(--accent-strong);
                 font-size: 14px;
             }
             .stat .l {
@@ -506,21 +510,21 @@
             }
             .badge.verified {
                 color: var(--verified);
-                background: rgba(95, 211, 138, 0.1);
+                background: rgba(62, 218, 178, 0.14);
             }
             .badge.verified::before {
                 background: var(--verified);
             }
             .badge.pending {
                 color: var(--pending);
-                background: rgba(232, 196, 104, 0.1);
+                background: rgba(237, 171, 79, 0.18);
             }
             .badge.pending::before {
                 background: var(--pending);
             }
             .badge.revoked {
                 color: var(--revoked);
-                background: rgba(240, 114, 106, 0.1);
+                background: rgba(214, 90, 82, 0.14);
             }
             .badge.revoked::before {
                 background: var(--revoked);
@@ -591,7 +595,7 @@
                 flex: none;
             }
             .copy:hover {
-                color: var(--accent);
+                color: var(--accent-strong);
             }
             .copy svg {
                 width: 13px;
@@ -630,7 +634,7 @@
                 text-decoration: none;
             }
             .foot a:hover {
-                color: var(--accent);
+                color: var(--accent-strong);
             }
 
             /* toast */
@@ -639,7 +643,7 @@
                 left: 50%;
                 bottom: 28px;
                 transform: translateX(-50%) translateY(20px);
-                background: var(--bg-elev-2);
+                background: var(--bg-tint);
                 border: 1px solid var(--line);
                 color: var(--text);
                 font-family: var(--mono);
@@ -663,7 +667,7 @@
             #toast svg {
                 width: 14px;
                 height: 14px;
-                color: var(--accent);
+                color: var(--accent-strong);
             }
 
             /* load-more button */
@@ -697,17 +701,17 @@
                     <a class="brand" href="#">
                         <span class="seal">
                             <svg
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="var(--accent)"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
+                                viewBox="0 0 197 200"
+                                fill="var(--text)"
+                                xmlns="http://www.w3.org/2000/svg"
+                                aria-label="Dataiku"
                             >
                                 <path
-                                    d="M12 2 4 5v6c0 5 3.5 8 8 11 4.5-3 8-6 8-11V5l-8-3Z"
+                                    d="M191.161 139.069H108.456V154.544H191.161V139.069Z"
                                 />
-                                <path d="m9 12 2 2 4-4" />
+                                <path
+                                    d="M183.432 13.1855C179.133 5.34204 170.809 0 161.215 0C147.237 0 135.906 11.3412 135.906 25.3323C135.906 26.6678 136.033 27.9609 136.244 29.2328L134.105 31.8614L0.420706 196.935C-0.235857 197.74 -0.10878 198.927 0.696039 199.585C1.43732 200.178 2.51747 200.136 3.19521 199.457L59.469 143.196C69.8469 132.83 83.9101 127.001 98.5874 127.001H118.178C160.982 127.001 186.715 102.601 182.056 52.4664C180.446 35.2108 181.336 27.9397 187.245 20.6474C190.294 16.8953 196.204 9.56055 196.204 9.56055L189.278 11.5108L183.411 13.1643L183.432 13.1855ZM161.745 28.4485C157.953 28.4485 154.882 25.3747 154.882 21.5801C154.882 17.7856 157.953 14.7118 161.745 14.7118C165.536 14.7118 168.607 17.7856 168.607 21.5801C168.607 25.3747 165.536 28.4485 161.745 28.4485Z"
+                                />
                             </svg>
                         </span>
                         <span>
@@ -831,11 +835,8 @@
                 >
                 <span
                     >powered by
-                    <a
-                        href="https://fastapicloud.dev"
-                        target="_blank"
-                        rel="noopener"
-                        >FastAPI Cloud</a
+                    <a href="https://dataiku.com" target="_blank" rel="noopener"
+                        >Dataiku's 575 Lab</a
                     ></span
                 >
             </div>
@@ -864,8 +865,15 @@
             /* ===== Helpers ===== */
             const esc = (s) =>
                 String(s).replace(
-                    /[&<>]/g,
-                    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c],
+                    /[&<>"']/g,
+                    (c) =>
+                        ({
+                            "&": "&amp;",
+                            "<": "&lt;",
+                            ">": "&gt;",
+                            '"': "&quot;",
+                            "'": "&#39;",
+                        })[c],
                 );
 
             function relativeTime(iso) {
@@ -932,9 +940,19 @@
                 for (let i = 0; i < seed.length; i++) {
                     h = (h * 31 + seed.charCodeAt(i)) >>> 0;
                 }
-                const hue = h % 360;
-                const c1 = "hsl(" + hue + " 70% 62%)";
-                const c2 = "hsl(" + ((hue + 38) % 360) + " 65% 48%)";
+                const palette = [
+                    "#3edab2",
+                    "#7092f2",
+                    "#edab4f",
+                    "#9bb3f6",
+                    "#149e7f",
+                    "#d68a3a",
+                ];
+                const i1 = h % palette.length;
+                let i2 = (Math.floor(h / 7) + 1) % palette.length;
+                if (i2 === i1) i2 = (i2 + 1) % palette.length;
+                const c1 = palette[i1];
+                const c2 = palette[i2];
                 let cells = "";
                 for (let y = 0; y < 5; y++) {
                     for (let x = 0; x < 3; x++) {

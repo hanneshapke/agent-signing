@@ -28,10 +28,11 @@ demo-crewai = ["crewai"]
 server = ["fastapi>=0.100", "uvicorn[standard]>=0.20"]
 
 [tool.setuptools]
-packages = ["agent_signing"]
+packages = ["agent_signing", "server", "server.backend"]
 
 [project.scripts]
 agent-signing = "agent_signing.cli:main"
+server = "server.backend.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/hanneshapke/agent-signing"
