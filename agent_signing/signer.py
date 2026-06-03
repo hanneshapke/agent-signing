@@ -31,6 +31,27 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
 from cryptography.hazmat.primitives import serialization
 
 
+def aggregate_hash(components: list[dict[str, Any]]) -> str:
+    """Compute the order-independent aggregate hash of a component list.
+
+    Each component is hashed individually (canonical JSON, sorted keys), the
+    per-component digests are sorted, then concatenated and hashed again.  This
+    is the value an Ed25519/HMAC signature is computed over, so a verifier that
+    is given the components can recompute this and confirm it matches the
+    signed hash — proving *which* tools and agents were signed.
+    """
+    component_hashes = sorted(
+        hashlib.sha256(
+            json.dumps(c, sort_keys=True, default=str).encode()
+        ).hexdigest()
+        for c in components
+    )
+    h = hashlib.sha256()
+    for ch in component_hashes:
+        h.update(ch.encode())
+    return h.hexdigest()
+
+
 def generate_keypair() -> tuple[bytes, bytes]:
     """Generate an Ed25519 key pair.
 
@@ -76,6 +97,8 @@ class VerificationResult:
     valid: bool
     reason: str
     identity: dict[str, Any] | None = field(default=None)
+    # The matched registry record, when verified via ``verify_from_registry()``.
+    record: dict[str, Any] | None = field(default=None)
 
     def __bool__(self) -> bool:
         return self.valid
@@ -110,12 +133,21 @@ class AgentSigner:
         private_key: bytes | None = None,
         public_key: bytes | None = None,
         identity_token: str | None = None,
+        name: str | None = None,
+        email: str | None = None,
     ) -> None:
         self._secret = secret.encode() if secret else None
         self._private_key = private_key
         self._public_key = public_key
         self._identity_token = identity_token
+        self._name = name
+        self._email = email
         self._components: list[dict[str, Any]] = []
+
+    @property
+    def components(self) -> list[dict[str, Any]]:
+        """The extracted tool/agent components that get signed."""
+        return list(self._components)
 
     # ------------------------------------------------------------------
     # Public API
@@ -173,46 +205,65 @@ class AgentSigner:
 
         return signature
 
-    def sign_to_file(self, path: str | Path) -> str:
+    def _public_key_hex(self) -> str | None:
+        """Hex-encoded public key, derived from the private or public key."""
+        if self._private_key:
+            key = Ed25519PrivateKey.from_private_bytes(self._private_key)
+            return key.public_key().public_bytes(
+                serialization.Encoding.Raw,
+                serialization.PublicFormat.Raw,
+            ).hex()
+        if self._public_key:
+            return self._public_key.hex()
+        return None
+
+    def _build_record(self, include_components: bool = False) -> dict[str, Any]:
+        """Assemble a publishable signature record.
+
+        Always includes ``signed_at``, ``public_key``, ``hash`` and
+        ``signature``.  Optional self-declared ``name``/``email`` are added when
+        set, and the signed ``components`` when ``include_components`` is True so
+        the registry can re-derive the hash and surface a verified tool/agent
+        summary.
+        """
+        record: dict[str, Any] = {
+            "signed_at": datetime.now(timezone.utc).isoformat(),
+            "public_key": self._public_key_hex(),
+            "hash": self._compute_aggregate(),
+            "signature": self.sign(),
+        }
+        if self._name:
+            record["name"] = self._name
+        if self._email:
+            record["email"] = self._email
+        if include_components:
+            record["components"] = self._components
+        return record
+
+    def sign_to_file(self, path: str | Path, include_components: bool = False) -> str:
         """Sign and write the result to a JSON file.
 
         The file contains the signature, the aggregate hash, the signing
         timestamp (ISO 8601 / UTC), and — when Ed25519 is used — the
-        hex-encoded public key so a verifier knows *who* signed.
+        hex-encoded public key so a verifier knows *who* signed.  Optional
+        self-declared name/email are included when set, and the signed
+        components when ``include_components`` is True.
 
         Returns
         -------
         str
             The raw signature string (same value as ``sign()``).
         """
-        signature = self.sign()
-        public_key_hex = None
-        if self._private_key:
-            key = Ed25519PrivateKey.from_private_bytes(self._private_key)
-            public_key_hex = (
-                key.public_key()
-                .public_bytes(
-                    serialization.Encoding.Raw,
-                    serialization.PublicFormat.Raw,
-                )
-                .hex()
-            )
-        elif self._public_key:
-            public_key_hex = self._public_key.hex()
-
-        record: dict[str, Any] = {
-            "signed_at": datetime.now(timezone.utc).isoformat(),
-            "public_key": public_key_hex,
-            "hash": self._compute_aggregate(),
-            "signature": signature,
-        }
+        record = self._build_record(include_components=include_components)
         Path(path).write_text(json.dumps(record, indent=2) + "\n")
-        return signature
+        return record["signature"]
 
     def publish(
         self,
         registry_url: str,
         path: str | Path | None = None,
+        include_components: bool = False,
+        token: str | None = None,
     ) -> dict[str, Any]:
         """Publish a signature record to a registry server.
 
@@ -223,6 +274,12 @@ class AgentSigner:
         path : str | Path | None
             Path to a signature file to read and publish.  If not given,
             signs on-the-fly and builds the record automatically.
+        include_components : bool
+            When signing on-the-fly, include the signed components so the
+            registry can verify and summarise them.
+        token : str | None
+            Personal registry token (minted after Google sign-in).  When
+            given, the registry binds the record to your verified identity.
 
         Returns
         -------
@@ -242,36 +299,20 @@ class AgentSigner:
         if path is not None:
             record = self.load_signature_file(path)
         else:
-            signature = self.sign()
-            public_key_hex = None
-            if self._private_key:
-                key = Ed25519PrivateKey.from_private_bytes(self._private_key)
-                public_key_hex = (
-                    key.public_key()
-                    .public_bytes(
-                        serialization.Encoding.Raw,
-                        serialization.PublicFormat.Raw,
-                    )
-                    .hex()
-                )
-            elif self._public_key:
-                public_key_hex = self._public_key.hex()
-            record = {
-                "signed_at": datetime.now(timezone.utc).isoformat(),
-                "public_key": public_key_hex,
-                "hash": self._compute_aggregate(),
-                "signature": signature,
-            }
+            record = self._build_record(include_components=include_components)
 
         url = registry_url.rstrip("/") + "/signatures"
         data = json.dumps(record).encode()
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "agent-signing/0.1.3",
+        }
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
         req = urllib.request.Request(
             url,
             data=data,
-            headers={
-                "Content-Type": "application/json",
-                "User-Agent": "agent-signing/0.1.3",
-            },
+            headers=headers,
             method="POST",
         )
         try:
@@ -324,6 +365,145 @@ class AgentSigner:
             return VerificationResult(valid=True, reason="Signature valid.")
         return VerificationResult(
             valid=False, reason="Signature mismatch — agent setup has changed."
+        )
+
+    def verify_from_registry(
+        self,
+        registry_url: str,
+        timeout: float = 10,
+    ) -> VerificationResult:
+        """Verify the current setup against the approved signature in a registry.
+
+        The network counterpart to :meth:`verify_file`: instead of reading the
+        approved signature from a local file, it is fetched from the shared
+        registry.  This verifier's aggregate hash is computed from the tools and
+        agents added to it, the signature record(s) registered for that exact
+        hash are fetched from ``registry_url`` (``GET /signatures/{hash}``), and
+        the setup is checked against them using the same logic as
+        :meth:`verify`.  A tampered setup hashes to a different value, for which
+        no signature is registered, so the lookup itself returns nothing.
+
+        Trust is anchored in the material held by *this* verifier, never in the
+        fetched record:
+
+        - **Ed25519** (``public_key`` set): the registered signature must
+          validate against the pinned public key.  A record signed by any other
+          key — e.g. one an attacker self-published for a tampered setup — is
+          rejected.
+        - **HMAC** (``secret`` set): the registered signature must match an HMAC
+          recomputed with the shared secret.
+        - **Neither**: only confirms that a signature for this exact setup is
+          registered; the signer is *not* authenticated.
+
+        Parameters
+        ----------
+        registry_url : str
+            Base URL of the registry (e.g. ``"http://localhost:8000"``).
+        timeout : float
+            Per-request timeout in seconds.
+
+        Returns
+        -------
+        VerificationResult
+            ``valid`` is True only if a registered signature passes the checks
+            above.  On success ``record`` holds the matched registry record (so
+            the caller can inspect the signer, timestamps, and submitter) and
+            ``identity`` holds any decoded JWT identity.
+
+        Raises
+        ------
+        ConnectionError
+            If the registry is unreachable.
+        ValueError
+            If the registry returns an unexpected error.
+        """
+        aggregate = self._compute_aggregate()
+        records = self._fetch_registry_records(registry_url, aggregate, timeout)
+
+        if not records:
+            return VerificationResult(
+                valid=False,
+                reason=(
+                    "No signature registered for this agent setup — it was "
+                    "never published or has changed since signing."
+                ),
+            )
+
+        last_failure: VerificationResult | None = None
+        for record in records:
+            signature = record.get("signature")
+            if not signature:
+                continue
+            result = self.verify(signature)
+            if result.valid:
+                return VerificationResult(
+                    valid=True,
+                    reason=self._registry_success_reason(),
+                    identity=result.identity,
+                    record=record,
+                )
+            last_failure = result
+
+        return VerificationResult(
+            valid=False,
+            reason=(
+                last_failure.reason
+                if last_failure is not None
+                else "Registry returned no usable signature for this setup."
+            ),
+        )
+
+    def _fetch_registry_records(
+        self,
+        registry_url: str,
+        hash_value: str,
+        timeout: float,
+    ) -> list[dict[str, Any]]:
+        """GET the signature records registered for ``hash_value``.
+
+        Returns an empty list when the registry has no record for the hash
+        (HTTP 404).  Mirrors :meth:`publish`'s error handling otherwise.
+        """
+        import urllib.error
+        import urllib.request
+
+        url = registry_url.rstrip("/") + "/signatures/" + hash_value
+        req = urllib.request.Request(
+            url,
+            headers={
+                "Accept": "application/json",
+                "User-Agent": "agent-signing/0.1.3",
+            },
+            method="GET",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                data = json.loads(resp.read().decode())
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:
+                return []
+            body = exc.read().decode() if exc.fp else ""
+            raise ValueError(
+                f"Registry lookup failed ({exc.code}): {body}"
+            ) from exc
+        except urllib.error.URLError as exc:
+            raise ConnectionError(
+                f"Cannot reach registry at {registry_url}: {exc.reason}"
+            ) from exc
+
+        if isinstance(data, dict):  # defensive: single-record shape
+            return [data]
+        return data if isinstance(data, list) else []
+
+    def _registry_success_reason(self) -> str:
+        """Describe a successful registry verification, scoped to the mode."""
+        if self._public_key:
+            return "Verified against the registered Ed25519 signature."
+        if self._secret:
+            return "Verified against the registered HMAC signature."
+        return (
+            "Setup matches a registered signature, but the signer was not "
+            "authenticated (no public key or secret provided)."
         )
 
     # ------------------------------------------------------------------
@@ -394,14 +574,7 @@ class AgentSigner:
 
     def _compute_aggregate(self) -> str:
         """Compute the order-independent aggregate hash of all components."""
-        component_hashes = sorted(
-            hashlib.sha256(json.dumps(c, sort_keys=True, default=str).encode()).hexdigest()
-            for c in self._components
-        )
-        h = hashlib.sha256()
-        for ch in component_hashes:
-            h.update(ch.encode())
-        return h.hexdigest()
+        return aggregate_hash(self._components)
 
     def _compute_signature_value(self, aggregate: str) -> str:
         """Produce HMAC or plain aggregate (for non-Ed25519 modes)."""

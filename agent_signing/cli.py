@@ -6,6 +6,7 @@ signatures to a registry, and verifying signatures.
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -62,6 +63,20 @@ def _build_parser() -> argparse.ArgumentParser:
         "--identity-token",
         help="JWT identity token to attach to the signature.",
     )
+    sign_p.add_argument(
+        "--name",
+        help="Self-declared signer name to attach (informational).",
+    )
+    sign_p.add_argument(
+        "--email",
+        help="Self-declared signer email to attach (informational).",
+    )
+    sign_p.add_argument(
+        "--include-components",
+        action="store_true",
+        help="Embed the signed tool/agent components so a registry can verify "
+        "and display them.",
+    )
 
     # --- verify ---
     verify_p = sub.add_parser(
@@ -77,6 +92,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--signature-file",
         default="agent_signature.json",
         help="Signature file to verify against (default: agent_signature.json).",
+    )
+    verify_p.add_argument(
+        "--registry-url",
+        help="Fetch the approved signature from this registry server "
+        "(e.g. http://localhost:8000) instead of a local signature file.",
     )
     verify_p.add_argument(
         "--secret",
@@ -101,6 +121,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--signature-file",
         default="agent_signature.json",
         help="Signature file to upload (default: agent_signature.json).",
+    )
+    upload_p.add_argument(
+        "--token",
+        help="Personal registry token to attach your Google-verified identity "
+        "(falls back to the AGENT_SIGNING_TOKEN environment variable).",
     )
 
     return parser
@@ -196,10 +221,12 @@ def cmd_sign(args: argparse.Namespace) -> None:
         secret=args.secret,
         private_key=private_key,
         identity_token=args.identity_token,
+        name=args.name,
+        email=args.email,
     )
     _populate_signer(signer, manifest)
 
-    signer.sign_to_file(args.output)
+    signer.sign_to_file(args.output, include_components=args.include_components)
     record = AgentSigner.load_signature_file(args.output)
 
     print(f"Signature written to: {args.output}")
@@ -207,15 +234,18 @@ def cmd_sign(args: argparse.Namespace) -> None:
     if record.get("public_key"):
         print(f"  public_key: {record['public_key']}")
     print(f"  hash:       {record['hash']}")
+    if record.get("name"):
+        print(f"  name:       {record['name']}")
+    if record.get("email"):
+        print(f"  email:      {record['email']}")
+    if "components" in record:
+        n_tools = sum(1 for c in record["components"] if c.get("type") == "tool")
+        n_agents = sum(1 for c in record["components"] if c.get("type") == "agent")
+        print(f"  components: {n_tools} tool(s), {n_agents} agent(s) embedded")
 
 
 def cmd_verify(args: argparse.Namespace) -> None:
     manifest = _load_manifest(args.manifest)
-
-    sig_path = Path(args.signature_file)
-    if not sig_path.exists():
-        print(f"Error: signature file not found: {args.signature_file}", file=sys.stderr)
-        sys.exit(1)
 
     public_key = _read_hex_key(args.public_key) if args.public_key else None
 
@@ -225,15 +255,44 @@ def cmd_verify(args: argparse.Namespace) -> None:
     )
     _populate_signer(verifier, manifest)
 
-    result: VerificationResult = verifier.verify_file(sig_path)
+    if args.registry_url:
+        try:
+            result: VerificationResult = verifier.verify_from_registry(args.registry_url)
+        except ConnectionError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            sys.exit(1)
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        sig_path = Path(args.signature_file)
+        if not sig_path.exists():
+            print(f"Error: signature file not found: {args.signature_file}", file=sys.stderr)
+            sys.exit(1)
+        result = verifier.verify_file(sig_path)
 
     if result.valid:
         print(f"Verification PASSED: {result.reason}")
+        if result.record:
+            _print_registry_record(result.record)
         if result.identity:
             print(f"  Identity: {json.dumps(result.identity, indent=2)}")
     else:
         print(f"Verification FAILED: {result.reason}", file=sys.stderr)
         sys.exit(1)
+
+
+def _print_registry_record(record: dict) -> None:
+    """Print the registry record a setup was verified against."""
+    if record.get("signed_at"):
+        print(f"  signed_at:    {record['signed_at']}")
+    if record.get("public_key"):
+        print(f"  public_key:   {record['public_key']}")
+    if record.get("submitter_verified") and record.get("submitter_email"):
+        print(f"  submitter:    {record['submitter_email']} (Google-verified)")
+    elif record.get("name") or record.get("email"):
+        who = " ".join(p for p in (record.get("name"), record.get("email")) if p)
+        print(f"  signer:       {who} (self-declared)")
 
 
 def cmd_upload(args: argparse.Namespace) -> None:
@@ -242,10 +301,12 @@ def cmd_upload(args: argparse.Namespace) -> None:
         print(f"Error: signature file not found: {args.signature_file}", file=sys.stderr)
         sys.exit(1)
 
+    token = args.token or os.environ.get("AGENT_SIGNING_TOKEN")
+
     # Use a bare signer just to call publish with a file path
     signer = AgentSigner()
     try:
-        response = signer.publish(args.registry_url, path=sig_path)
+        response = signer.publish(args.registry_url, path=sig_path, token=token)
     except ConnectionError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
@@ -258,6 +319,10 @@ def cmd_upload(args: argparse.Namespace) -> None:
         print(f"  registered_at: {response['registered_at']}")
     if "hash" in response:
         print(f"  hash:          {response['hash']}")
+    if response.get("submitter_verified"):
+        print(f"  submitter:     {response.get('submitter_email')} (Google-verified)")
+    elif token:
+        print("  submitter:     token not recognized — uploaded anonymously")
 
 
 def main(argv: list[str] | None = None) -> None:

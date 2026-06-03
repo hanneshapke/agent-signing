@@ -435,3 +435,199 @@ class TestSignatureFile:
 
         record = AgentSigner.load_signature_file(path)
         assert record["public_key"] == pub.hex()
+
+
+def _registry_record(signer: AgentSigner) -> dict:
+    """Build the registry record shape a GET /signatures/{hash} would return."""
+    return {
+        "signed_at": "2026-01-01T00:00:00+00:00",
+        "public_key": signer._public_key_hex(),
+        "hash": signer._compute_aggregate(),
+        "signature": signer.sign(),
+        "registered_at": "2026-01-01T00:00:01+00:00",
+    }
+
+
+class TestRegistryVerification:
+    """verify_from_registry() — fetch the approved signature from the registry."""
+
+    def test_valid_ed25519(self, monkeypatch):
+        priv, pub = generate_keypair()
+        signer = AgentSigner(private_key=priv)
+        signer.add_tool(TOOL_SEARCH)
+        record = _registry_record(signer)
+
+        verifier = AgentSigner(public_key=pub)
+        verifier.add_tool(TOOL_SEARCH)
+        monkeypatch.setattr(verifier, "_fetch_registry_records", lambda u, h, t: [record])
+
+        result = verifier.verify_from_registry("http://registry.example")
+        assert result.valid is True
+        assert result.record is record
+        assert "Ed25519" in result.reason
+
+    def test_valid_hmac(self, monkeypatch):
+        signer = AgentSigner(secret="team-secret")
+        signer.add_tool(TOOL_SEARCH)
+        record = _registry_record(signer)
+
+        verifier = AgentSigner(secret="team-secret")
+        verifier.add_tool(TOOL_SEARCH)
+        monkeypatch.setattr(verifier, "_fetch_registry_records", lambda u, h, t: [record])
+
+        assert verifier.verify_from_registry("http://registry.example").valid is True
+
+    def test_wrong_hmac_secret_fails(self, monkeypatch):
+        signer = AgentSigner(secret="team-secret")
+        signer.add_tool(TOOL_SEARCH)
+        record = _registry_record(signer)
+
+        verifier = AgentSigner(secret="other-secret")
+        verifier.add_tool(TOOL_SEARCH)
+        monkeypatch.setattr(verifier, "_fetch_registry_records", lambda u, h, t: [record])
+
+        assert verifier.verify_from_registry("http://registry.example").valid is False
+
+    def test_unregistered_setup_is_invalid(self, monkeypatch):
+        _, pub = generate_keypair()
+        verifier = AgentSigner(public_key=pub)
+        verifier.add_tool(TOOL_SEARCH)
+        # Registry has nothing for this hash (404 -> empty list).
+        monkeypatch.setattr(verifier, "_fetch_registry_records", lambda u, h, t: [])
+
+        result = verifier.verify_from_registry("http://registry.example")
+        assert result.valid is False
+        assert "No signature registered" in result.reason
+
+    def test_rejects_signature_from_untrusted_key(self, monkeypatch):
+        # An attacker self-signs their own setup and publishes it...
+        attacker_priv, _ = generate_keypair()
+        attacker = AgentSigner(private_key=attacker_priv)
+        attacker.add_tool(TOOL_SEARCH)
+        rogue_record = _registry_record(attacker)
+
+        # ...but the verifier trusts a *different* public key.
+        _, trusted_pub = generate_keypair()
+        verifier = AgentSigner(public_key=trusted_pub)
+        verifier.add_tool(TOOL_SEARCH)
+        monkeypatch.setattr(verifier, "_fetch_registry_records", lambda u, h, t: [rogue_record])
+
+        result = verifier.verify_from_registry("http://registry.example")
+        assert result.valid is False
+
+    def test_picks_trusted_record_among_cosignatures(self, monkeypatch):
+        priv, pub = generate_keypair()
+        good = AgentSigner(private_key=priv)
+        good.add_tool(TOOL_SEARCH)
+        good_record = _registry_record(good)
+
+        attacker_priv, _ = generate_keypair()
+        rogue = AgentSigner(private_key=attacker_priv)
+        rogue.add_tool(TOOL_SEARCH)
+        rogue_record = _registry_record(rogue)
+
+        verifier = AgentSigner(public_key=pub)
+        verifier.add_tool(TOOL_SEARCH)
+        monkeypatch.setattr(
+            verifier, "_fetch_registry_records", lambda u, h, t: [rogue_record, good_record]
+        )
+
+        result = verifier.verify_from_registry("http://registry.example")
+        assert result.valid is True
+        assert result.record is good_record
+
+    def test_jwt_identity_surfaced(self, monkeypatch):
+        token = _make_jwt({"sub": "alice", "iss": "github"})
+        signer = AgentSigner(identity_token=token)
+        signer.add_tool(TOOL_SEARCH)
+        record = _registry_record(signer)
+
+        verifier = AgentSigner()
+        verifier.add_tool(TOOL_SEARCH)
+        monkeypatch.setattr(verifier, "_fetch_registry_records", lambda u, h, t: [record])
+
+        result = verifier.verify_from_registry("http://registry.example")
+        assert result.valid is True
+        assert result.identity["sub"] == "alice"
+
+
+class TestRegistryFetch:
+    """The HTTP layer of verify_from_registry()."""
+
+    class _FakeResponse:
+        def __init__(self, payload):
+            self._payload = json.dumps(payload).encode()
+
+        def read(self):
+            return self._payload
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    def test_fetch_and_verify_over_http(self, monkeypatch):
+        import urllib.request
+
+        priv, pub = generate_keypair()
+        signer = AgentSigner(private_key=priv)
+        signer.add_tool(TOOL_SEARCH)
+        record = _registry_record(signer)
+        aggregate = signer._compute_aggregate()
+
+        def fake_urlopen(req, timeout=None):
+            assert req.full_url.endswith("/signatures/" + aggregate)
+            return self._FakeResponse([record])
+
+        monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+        verifier = AgentSigner(public_key=pub)
+        verifier.add_tool(TOOL_SEARCH)
+        result = verifier.verify_from_registry("http://localhost:8000/")
+        assert result.valid is True
+        assert result.record["public_key"] == pub.hex()
+
+    def test_404_returns_empty(self, monkeypatch):
+        import urllib.error
+        import urllib.request
+
+        def fake_urlopen(req, timeout=None):
+            raise urllib.error.HTTPError(req.full_url, 404, "Not Found", {}, None)
+
+        monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+        verifier = AgentSigner()
+        verifier.add_tool(TOOL_SEARCH)
+        assert verifier._fetch_registry_records("http://localhost:8000", "abc", 5) == []
+
+    def test_unreachable_raises_connection_error(self, monkeypatch):
+        import urllib.error
+        import urllib.request
+
+        def fake_urlopen(req, timeout=None):
+            raise urllib.error.URLError("connection refused")
+
+        monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+        verifier = AgentSigner()
+        verifier.add_tool(TOOL_SEARCH)
+        with pytest.raises(ConnectionError):
+            verifier.verify_from_registry("http://localhost:8000")
+
+    def test_server_error_raises_value_error(self, monkeypatch):
+        import io
+        import urllib.error
+        import urllib.request
+
+        def fake_urlopen(req, timeout=None):
+            raise urllib.error.HTTPError(
+                req.full_url, 500, "Server Error", {}, io.BytesIO(b"boom")
+            )
+
+        monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+        verifier = AgentSigner()
+        verifier.add_tool(TOOL_SEARCH)
+        with pytest.raises(ValueError):
+            verifier.verify_from_registry("http://localhost:8000")
