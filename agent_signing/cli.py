@@ -61,6 +61,20 @@ def _build_parser() -> argparse.ArgumentParser:
         "--identity-token",
         help="JWT identity token to attach to the signature.",
     )
+    sign_p.add_argument(
+        "--name",
+        help="Self-declared signer name to attach (informational).",
+    )
+    sign_p.add_argument(
+        "--email",
+        help="Self-declared signer email to attach (informational).",
+    )
+    sign_p.add_argument(
+        "--include-components",
+        action="store_true",
+        help="Embed the signed tool/agent components so a registry can verify "
+        "and display them.",
+    )
 
     # --- verify ---
     verify_p = sub.add_parser(
@@ -190,10 +204,12 @@ def cmd_sign(args: argparse.Namespace) -> None:
         secret=args.secret,
         private_key=private_key,
         identity_token=args.identity_token,
+        name=args.name,
+        email=args.email,
     )
     _populate_signer(signer, manifest)
 
-    signature = signer.sign_to_file(args.output)
+    signer.sign_to_file(args.output, include_components=args.include_components)
     record = AgentSigner.load_signature_file(args.output)
 
     print(f"Signature written to: {args.output}")
@@ -201,6 +217,14 @@ def cmd_sign(args: argparse.Namespace) -> None:
     if record.get("public_key"):
         print(f"  public_key: {record['public_key']}")
     print(f"  hash:       {record['hash']}")
+    if record.get("name"):
+        print(f"  name:       {record['name']}")
+    if record.get("email"):
+        print(f"  email:      {record['email']}")
+    if "components" in record:
+        n_tools = sum(1 for c in record["components"] if c.get("type") == "tool")
+        n_agents = sum(1 for c in record["components"] if c.get("type") == "agent")
+        print(f"  components: {n_tools} tool(s), {n_agents} agent(s) embedded")
 
 
 def cmd_verify(args: argparse.Namespace) -> None:

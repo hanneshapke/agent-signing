@@ -529,6 +529,20 @@
             .badge.revoked::before {
                 background: var(--revoked);
             }
+            .badge.invalid {
+                color: var(--revoked);
+                background: rgba(214, 90, 82, 0.14);
+            }
+            .badge.invalid::before {
+                background: var(--revoked);
+            }
+            .badge.checking {
+                color: var(--text-dim);
+                background: rgba(26, 26, 26, 0.06);
+            }
+            .badge.checking::before {
+                background: var(--text-faint);
+            }
 
             @media (max-width: 760px) {
                 .thead {
@@ -556,7 +570,7 @@
                 cursor: default;
             }
             .row.open .detail {
-                max-height: 360px;
+                max-height: 1000px;
                 border-top: 1px solid var(--line-soft);
                 margin-top: 15px;
                 padding-top: 16px;
@@ -601,6 +615,162 @@
                 width: 13px;
                 height: 13px;
                 display: block;
+            }
+            .v.crypto.valid {
+                color: var(--verified);
+                font-weight: 500;
+            }
+            .v.crypto.invalid {
+                color: var(--revoked);
+                font-weight: 500;
+            }
+            .v.crypto.checking,
+            .v.crypto.unsupported,
+            .v.crypto.hmac {
+                color: var(--text-dim);
+            }
+            .detail-note {
+                margin-top: 14px;
+                display: flex;
+                align-items: flex-start;
+                gap: 7px;
+                font-family: var(--mono);
+                font-size: 11.5px;
+                line-height: 1.45;
+                color: var(--pending);
+                background: rgba(237, 171, 79, 0.1);
+                border: 1px solid rgba(237, 171, 79, 0.28);
+                border-radius: 8px;
+                padding: 9px 12px;
+            }
+            .v.keyfp {
+                color: var(--text-dim);
+            }
+            .v.crypto.invalid,
+            .dcell .v.warn {
+                color: var(--revoked);
+            }
+
+            /* co-signature summary banner */
+            .cosign {
+                align-items: flex-start;
+                gap: 10px;
+                margin-bottom: 14px;
+                padding: 13px 16px;
+                border-radius: var(--radius);
+                background: var(--bg-elev-2);
+                border: 1px solid rgba(18, 160, 126, 0.3);
+                font-family: var(--mono);
+                font-size: 12.5px;
+                line-height: 1.5;
+                color: var(--text);
+            }
+            .cosign .ic {
+                flex: none;
+                font-size: 14px;
+                line-height: 1.3;
+            }
+            .cosign b {
+                color: var(--accent-strong);
+                font-weight: 600;
+            }
+            .cosign .sub {
+                display: block;
+                margin-top: 2px;
+                font-size: 11.5px;
+                color: var(--text-dim);
+            }
+
+            /* signed-setup (tools / agents) block in the detail panel */
+            .setup {
+                margin-top: 14px;
+                border: 1px solid var(--line-soft);
+                border-radius: 10px;
+                overflow: hidden;
+                background: var(--bg-elev);
+            }
+            .setup-head {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 10px;
+                padding: 9px 13px;
+                border-bottom: 1px solid var(--line-soft);
+                font-family: var(--mono);
+                font-size: 10.5px;
+                text-transform: uppercase;
+                letter-spacing: 0.09em;
+                color: var(--text-faint);
+            }
+            .setup-body {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                max-height: 220px;
+                overflow-y: auto;
+            }
+            @media (max-width: 600px) {
+                .setup-body {
+                    grid-template-columns: 1fr;
+                }
+            }
+            .setup-col {
+                padding: 11px 13px;
+            }
+            .setup-col + .setup-col {
+                border-left: 1px solid var(--line-soft);
+            }
+            .setup-k {
+                font-family: var(--mono);
+                font-size: 10.5px;
+                text-transform: uppercase;
+                letter-spacing: 0.1em;
+                color: var(--text-faint);
+                margin-bottom: 7px;
+            }
+            .setup ul {
+                list-style: none;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+            .setup li {
+                font-family: var(--mono);
+                font-size: 12px;
+                line-height: 1.4;
+            }
+            .setup .nm {
+                color: var(--text);
+                font-weight: 500;
+            }
+            .setup .muted {
+                color: var(--text-dim);
+                font-weight: 400;
+            }
+            .setup .sub2 {
+                color: var(--text-faint);
+                font-size: 11px;
+                margin-top: 2px;
+                word-break: break-word;
+            }
+            .vstamp {
+                font-family: var(--mono);
+                font-size: 10.5px;
+                font-weight: 500;
+                padding: 3px 8px;
+                border-radius: 6px;
+                white-space: nowrap;
+            }
+            .vstamp.ok {
+                color: var(--verified);
+                background: rgba(62, 218, 178, 0.14);
+            }
+            .vstamp.bad {
+                color: var(--revoked);
+                background: rgba(214, 90, 82, 0.14);
+            }
+            .vstamp.neutral {
+                color: var(--text-dim);
+                background: rgba(26, 26, 26, 0.06);
             }
 
             .empty {
@@ -811,6 +981,8 @@
                     <span class="meta" id="count">— entries</span>
                 </div>
 
+                <div class="cosign" id="cosign" style="display: none"></div>
+
                 <div class="table" id="table-wrap">
                     <div class="thead">
                         <div>fp</div>
@@ -893,15 +1065,265 @@
                 }
             }
 
+            /* parse the stored signature as a JSON envelope (Ed25519/JWT modes),
+               cached on the record. Returns null for plain HMAC hex strings. */
+            function parseEnvelope(sig) {
+                if (sig._env !== undefined) return sig._env;
+                let env = null;
+                try {
+                    const p = JSON.parse(sig.signature);
+                    if (p && typeof p === "object") env = p;
+                } catch {}
+                sig._env = env;
+                return env;
+            }
+
+            function getIdentity(sig) {
+                const env = parseEnvelope(sig);
+                return env && env.identity ? env.identity : null;
+            }
+
             function getAlgorithm(sig) {
                 if (sig.public_key) {
-                    try {
-                        const parsed = JSON.parse(sig.signature);
-                        if (parsed.identity_token) return "Ed25519 + JWT";
-                    } catch {}
+                    const env = parseEnvelope(sig);
+                    if (env && env.identity_token) return "Ed25519 + JWT";
                     return "Ed25519";
                 }
                 return "HMAC-SHA256";
+            }
+
+            /* ---- byte helpers ---- */
+            function hexToBytes(hex) {
+                const clean = String(hex).trim();
+                const out = new Uint8Array(clean.length >> 1);
+                for (let i = 0; i < out.length; i++) {
+                    out[i] = parseInt(clean.substr(i * 2, 2), 16);
+                }
+                return out;
+            }
+            function base64ToBytes(b64) {
+                const bin = atob(b64);
+                const out = new Uint8Array(bin.length);
+                for (let i = 0; i < bin.length; i++)
+                    out[i] = bin.charCodeAt(i);
+                return out;
+            }
+
+            /* Actually verify the Ed25519 signature in-browser via WebCrypto.
+               The signed message is the UTF-8 bytes of the aggregate hash —
+               matching AgentSigner.sign() (key.sign(aggregate.encode())).
+               Result is cached on the record. */
+            async function verifyEd25519(sig) {
+                if (sig._verify) return sig._verify;
+                let res;
+                if (!sig.public_key) {
+                    res = { state: "hmac" };
+                } else {
+                    const env = parseEnvelope(sig);
+                    if (!env || !env.signature) {
+                        res = {
+                            state: "invalid",
+                            reason: "no Ed25519 signature in record",
+                        };
+                    } else if (env.hash && env.hash !== sig.hash) {
+                        res = {
+                            state: "invalid",
+                            reason: "registry hash ≠ signed hash",
+                        };
+                    } else {
+                        try {
+                            const pk = hexToBytes(sig.public_key);
+                            const sigBytes = base64ToBytes(env.signature);
+                            if (pk.length !== 32) {
+                                res = {
+                                    state: "invalid",
+                                    reason: "public key is not 32 bytes",
+                                };
+                            } else if (sigBytes.length !== 64) {
+                                res = {
+                                    state: "invalid",
+                                    reason: "signature is not 64 bytes",
+                                };
+                            } else if (
+                                !(window.crypto && crypto.subtle)
+                            ) {
+                                res = { state: "unsupported" };
+                            } else {
+                                const msg = new TextEncoder().encode(sig.hash);
+                                const key = await crypto.subtle.importKey(
+                                    "raw",
+                                    pk,
+                                    { name: "Ed25519" },
+                                    false,
+                                    ["verify"],
+                                );
+                                const ok = await crypto.subtle.verify(
+                                    { name: "Ed25519" },
+                                    key,
+                                    sigBytes,
+                                    msg,
+                                );
+                                res = ok
+                                    ? { state: "valid" }
+                                    : {
+                                          state: "invalid",
+                                          reason: "signature does not match hash",
+                                      };
+                            }
+                        } catch (e) {
+                            /* importKey/verify throws when the browser lacks
+                               Ed25519 support — treat as not-verifiable rather
+                               than invalid. */
+                            res = { state: "unsupported" };
+                        }
+                    }
+                }
+                sig._verify = res;
+                return res;
+            }
+
+            /* badge shown before async verification resolves */
+            function initialStatus(sig) {
+                if (!sig.public_key) return { cls: "pending", label: "signed" };
+                return { cls: "checking", label: "checking…" };
+            }
+
+            const STATUS_MAP = {
+                valid: ["verified", "verified"],
+                invalid: ["invalid", "invalid"],
+                hmac: ["pending", "signed"],
+                unsupported: ["pending", "unverified"],
+            };
+
+            function cryptoCheckText(res) {
+                switch (res.state) {
+                    case "valid":
+                        return "✓ Ed25519 signature valid";
+                    case "invalid":
+                        return "✗ " + (res.reason || "invalid signature");
+                    case "hmac":
+                        return "not verifiable here — HMAC needs the shared secret";
+                    case "unsupported":
+                        return "this browser can't verify Ed25519";
+                    default:
+                        return "checking…";
+                }
+            }
+
+            function fmtUnix(secs) {
+                try {
+                    return new Date(secs * 1000).toLocaleString();
+                } catch {
+                    return String(secs);
+                }
+            }
+
+            function bytesToBase64(bytes) {
+                let bin = "";
+                for (let i = 0; i < bytes.length; i++)
+                    bin += String.fromCharCode(bytes[i]);
+                return btoa(bin);
+            }
+
+            /* SSH-style key fingerprint: SHA-256 of the raw public key bytes,
+               base64 (unpadded), for eyeballing "is this the signer I trust?".
+               Depends only on the key, so it's cached across rows. */
+            const fpCache = new Map();
+            async function keyFingerprint(hex) {
+                if (fpCache.has(hex)) return fpCache.get(hex);
+                let out;
+                try {
+                    const digest = await crypto.subtle.digest(
+                        "SHA-256",
+                        hexToBytes(hex),
+                    );
+                    out =
+                        "SHA256:" +
+                        bytesToBase64(new Uint8Array(digest)).replace(
+                            /=+$/,
+                            "",
+                        );
+                } catch {
+                    out = "—";
+                }
+                fpCache.set(hex, out);
+                return out;
+            }
+
+            function humanDuration(ms) {
+                const s = Math.abs(ms) / 1000;
+                const r = (n, unit) =>
+                    Math.round(n) + " " + unit + (Math.round(n) === 1 ? "" : "s");
+                if (s < 1) return "under a second";
+                if (s < 60) return r(s, "second");
+                if (s < 3600) return r(s / 60, "minute");
+                if (s < 86400) return r(s / 3600, "hour");
+                if (s < 2629800) return r(s / 86400, "day");
+                if (s < 31557600) return r(s / 2629800, "month");
+                return r(s / 31557600, "year");
+            }
+
+            /* Delta between signing and registration. A large or negative gap
+               is a backdating signal worth flagging. Returns {text, warn}. */
+            function formatLatency(signedISO, registeredISO) {
+                const a = new Date(signedISO).getTime();
+                const b = new Date(registeredISO).getTime();
+                if (isNaN(a) || isNaN(b)) return { text: "—", warn: false };
+                const delta = b - a;
+                if (delta < -1000)
+                    return {
+                        text:
+                            "⚠ registered " +
+                            humanDuration(delta) +
+                            " BEFORE it was signed",
+                        warn: true,
+                    };
+                const big = delta > 86400 * 1000; /* > 24h */
+                return {
+                    text:
+                        "registered " +
+                        humanDuration(delta) +
+                        " after signing" +
+                        (big ? "  ⚠" : ""),
+                    warn: big,
+                };
+            }
+
+            /* update a rendered row's badge + crypto-check cell once verified */
+            function applyVerification(el, res) {
+                const [cls, label] = STATUS_MAP[res.state] || [
+                    "pending",
+                    "unverified",
+                ];
+                const badge = el.querySelector(".badge");
+                if (badge) {
+                    badge.className = "badge " + cls;
+                    badge.textContent = label;
+                }
+                const chk = el.querySelector(".detail .crypto");
+                if (chk) {
+                    chk.className = "v crypto " + res.state;
+                    chk.textContent = cryptoCheckText(res);
+                }
+            }
+
+            /* verify each freshly rendered row and update it in place,
+               then fill in the (async) key fingerprint */
+            function verifyVisible(rowEls) {
+                rowEls.forEach(async (el) => {
+                    const s = el._sig;
+                    if (!s) return;
+                    const res = await verifyEd25519(s);
+                    applyVerification(el, res);
+                    if (s.public_key) {
+                        const fp = await keyFingerprint(s.public_key);
+                        const fpEl = el.querySelector(".detail .keyfp");
+                        if (fpEl) {
+                            fpEl.textContent = fp;
+                            fpEl.classList.remove("keyfp");
+                        }
+                    }
+                });
             }
 
             function getSignerLabel(sig) {
@@ -910,14 +1332,6 @@
                     return "ed25519:" + k.slice(0, 3) + "…" + k.slice(-3);
                 }
                 return "hmac";
-            }
-
-            function getStatus(sig) {
-                return sig.public_key ? "verified" : "pending";
-            }
-
-            function getStatusLabel(sig) {
-                return sig.public_key ? "verified" : "signed";
             }
 
             function shortenHash(h) {
@@ -934,12 +1348,24 @@
                 return s.slice(0, 24) + "…" + s.slice(-20);
             }
 
-            /* deterministic fingerprint swatch */
+            /* deterministic identicon swatch, seeded by signer key (or hash).
+               Uses 32-bit-safe integer math (Math.imul): the old LCG overflowed
+               JS's safe-integer range, zeroing the low bits so every swatch came
+               out blank. FNV-1a string hash → mulberry32 PRNG. */
             function fpSVG(seed) {
-                let h = 0;
+                let h = 2166136261 >>> 0;
                 for (let i = 0; i < seed.length; i++) {
-                    h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+                    h ^= seed.charCodeAt(i);
+                    h = Math.imul(h, 16777619) >>> 0;
                 }
+                const rnd = () => {
+                    h = (h + 0x6d2b79f5) >>> 0;
+                    let t = h;
+                    t = Math.imul(t ^ (t >>> 15), t | 1) >>> 0;
+                    t = (t + Math.imul(t ^ (t >>> 7), t | 61)) >>> 0;
+                    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+                    return (t ^ (t >>> 14)) >>> 0;
+                };
                 const palette = [
                     "#3edab2",
                     "#7092f2",
@@ -948,39 +1374,147 @@
                     "#149e7f",
                     "#d68a3a",
                 ];
-                const i1 = h % palette.length;
-                let i2 = (Math.floor(h / 7) + 1) % palette.length;
+                const i1 = rnd() % palette.length;
+                let i2 = rnd() % palette.length;
                 if (i2 === i1) i2 = (i2 + 1) % palette.length;
                 const c1 = palette[i1];
                 const c2 = palette[i2];
                 let cells = "";
                 for (let y = 0; y < 5; y++) {
                     for (let x = 0; x < 3; x++) {
-                        h = (h * 1103515245 + 12345) >>> 0;
-                        if (h & 1) {
-                            const col = (h >> 3) & 1 ? c1 : c2;
-                            cells +=
+                        const r = rnd();
+                        if (r & 1) {
+                            const col = (r >> 3) & 1 ? c1 : c2;
+                            const rect = (rx) =>
                                 '<rect x="' +
-                                x * 7 +
+                                rx * 7 +
                                 '" y="' +
                                 y * 7 +
                                 '" width="7" height="7" fill="' +
                                 col +
                                 '"/>';
-                            if (x < 2)
-                                cells +=
-                                    '<rect x="' +
-                                    (4 - x) * 7 +
-                                    '" y="' +
-                                    y * 7 +
-                                    '" width="7" height="7" fill="' +
-                                    col +
-                                    '"/>';
+                            cells += rect(x);
+                            if (x < 2) cells += rect(4 - x);
                         }
                     }
                 }
                 return (
                     '<svg class="fp" viewBox="-1 -1 37 37">' + cells + "</svg>"
+                );
+            }
+
+            /* row subtitle: algorithm + (when known) signed tool/agent counts */
+            function rowSubtitle(s) {
+                let t = getAlgorithm(s);
+                if (s.summary) {
+                    const tc = s.summary.tool_count || 0;
+                    const ac = s.summary.agent_count || 0;
+                    t +=
+                        " · " +
+                        tc +
+                        " tool" +
+                        (tc === 1 ? "" : "s") +
+                        ", " +
+                        ac +
+                        " agent" +
+                        (ac === 1 ? "" : "s");
+                }
+                return t;
+            }
+
+            /* whether the published components were re-derived to the signed hash */
+            function verifStamp(v) {
+                if (v === true)
+                    return '<span class="vstamp ok">✓ verified against signed hash</span>';
+                if (v === false)
+                    return '<span class="vstamp bad">⚠ does NOT match signed hash</span>';
+                return '<span class="vstamp neutral">not cross-checked</span>';
+            }
+
+            /* signed tools + agents, surfaced only when the signer published them */
+            function setupHTML(s) {
+                const sum = s.summary;
+                if (!sum) return "";
+
+                const tools = (sum.tools || [])
+                    .map((t) => {
+                        const params = (t.parameters || []).length
+                            ? ' <span class="muted">(' +
+                              esc(t.parameters.join(", ")) +
+                              ")</span>"
+                            : "";
+                        const desc = t.description
+                            ? '<div class="sub2">' + esc(t.description) + "</div>"
+                            : "";
+                        return (
+                            '<li><span class="nm">' +
+                            esc(t.name || "tool") +
+                            "</span>" +
+                            params +
+                            desc +
+                            "</li>"
+                        );
+                    })
+                    .join("");
+
+                const agents = (sum.agents || [])
+                    .map((a) => {
+                        const label = a.name || a.role || "agent";
+                        const role =
+                            a.role && a.role !== a.name
+                                ? ' <span class="muted">· ' +
+                                  esc(a.role) +
+                                  "</span>"
+                                : "";
+                        const goal = a.goal
+                            ? '<div class="sub2">goal: ' + esc(a.goal) + "</div>"
+                            : "";
+                        const llm = a.llm
+                            ? '<div class="sub2">llm: ' + esc(a.llm) + "</div>"
+                            : "";
+                        const uses = (a.tools || []).length
+                            ? '<div class="sub2">tools: ' +
+                              esc(a.tools.join(", ")) +
+                              "</div>"
+                            : "";
+                        return (
+                            '<li><span class="nm">' +
+                            esc(label) +
+                            "</span>" +
+                            role +
+                            goal +
+                            llm +
+                            uses +
+                            "</li>"
+                        );
+                    })
+                    .join("");
+
+                const tc = sum.tool_count || 0;
+                const ac = sum.agent_count || 0;
+                return (
+                    '<div class="setup"><div class="setup-head"><span>signed setup · ' +
+                    tc +
+                    " tool" +
+                    (tc === 1 ? "" : "s") +
+                    ", " +
+                    ac +
+                    " agent" +
+                    (ac === 1 ? "" : "s") +
+                    "</span>" +
+                    verifStamp(s.components_verified) +
+                    '</div><div class="setup-body">' +
+                    (tools
+                        ? '<div class="setup-col"><div class="setup-k">tools</div><ul>' +
+                          tools +
+                          "</ul></div>"
+                        : "") +
+                    (agents
+                        ? '<div class="setup-col"><div class="setup-k">agents</div><ul>' +
+                          agents +
+                          "</ul></div>"
+                        : "") +
+                    "</div></div>"
                 );
             }
 
@@ -998,18 +1532,155 @@
                         : "") +
                     "</div></div>";
 
+                const env = parseEnvelope(s);
                 const algo = getAlgorithm(s);
                 const pk = s.public_key || "—";
+                const sigValue =
+                    env && env.signature ? env.signature : s.signature;
+
+                /* signature-check cell — filled in async by applyVerification() */
+                const checkCell =
+                    '<div class="dcell"><div class="k">signature check</div>' +
+                    '<div class="v crypto ' +
+                    (s.public_key ? "checking" : "hmac") +
+                    '">' +
+                    (s.public_key
+                        ? "checking…"
+                        : "not verifiable here — HMAC needs the shared secret") +
+                    "</div></div>";
+
+                /* key fingerprint cell — filled in async by verifyVisible() */
+                const fpCell = s.public_key
+                    ? '<div class="dcell"><div class="k">key fingerprint</div>' +
+                      '<div class="v keyfp">computing…</div></div>'
+                    : "";
+
+                /* sign → register latency */
+                const lat = formatLatency(s.signed_at, s.registered_at);
+                const latCell =
+                    '<div class="dcell"><div class="k">registration delay</div>' +
+                    '<div class="v' +
+                    (lat.warn ? " warn" : "") +
+                    '">' +
+                    esc(lat.text) +
+                    "</div></div>";
+
+                /* self-declared signer metadata (not covered by the signature) */
+                let metaCells = "";
+                if (s.name)
+                    metaCells += cell(
+                        "signer name · self-declared",
+                        s.name,
+                        s.name,
+                    );
+                if (s.email)
+                    metaCells += cell(
+                        "signer email · self-declared",
+                        s.email,
+                        s.email,
+                    );
+
+                /* decoded JWT identity claims, when present */
+                let idCells = "";
+                let note = "";
+                const id = getIdentity(s);
+                if (id) {
+                    const who = id.email || id.name || id.sub;
+                    if (who) idCells += cell("signer identity", who, who);
+                    if (id.iss) idCells += cell("issuer", id.iss);
+                    if (id.aud)
+                        idCells += cell(
+                            "audience",
+                            Array.isArray(id.aud)
+                                ? id.aud.join(", ")
+                                : id.aud,
+                        );
+                    if (id.sub && id.sub !== who)
+                        idCells += cell("subject", id.sub);
+                    if (id.iat)
+                        idCells += cell("token issued", fmtUnix(id.iat));
+                    if (id.exp) {
+                        const expired = id.exp * 1000 < Date.now();
+                        idCells += cell(
+                            "token expiry",
+                            fmtUnix(id.exp) + (expired ? "  ⚠ EXPIRED" : ""),
+                        );
+                    }
+                    if (env && env.identity_token)
+                        idCells += cell(
+                            "identity token",
+                            truncateSig(env.identity_token),
+                            env.identity_token,
+                        );
+                    note =
+                        '<div class="detail-note"><span>⚠</span><span>Identity claims are decoded from the attached JWT, but its signature is not verified by this registry &mdash; treat the signer identity as <b>claimed</b>, not proven.</span></div>';
+                }
+
                 return (
                     '<div class="detail" onclick="event.stopPropagation()"><div class="dgrid">' +
                     cell("full hash", "sha256:" + s.hash, "sha256:" + s.hash) +
+                    checkCell +
                     cell("public key", pk, s.public_key ? s.public_key : null) +
+                    fpCell +
                     cell("algorithm", algo) +
-                    cell("signature", truncateSig(s.signature), s.signature) +
+                    cell("signature", truncateSig(sigValue), sigValue) +
                     cell("signed at", formatISO(s.signed_at)) +
                     cell("registered at", formatISO(s.registered_at)) +
-                    "</div></div>"
+                    latCell +
+                    metaCells +
+                    idCells +
+                    "</div>" +
+                    setupHTML(s) +
+                    (s.components_verified === false
+                        ? '<div class="detail-note"><span>⚠</span><span>The published components do <b>not</b> hash to the signed value — the list below may have been altered and does not reflect what was actually signed.</span></div>'
+                        : "") +
+                    note +
+                    "</div>"
                 );
+            }
+
+            /* Highlight when the rendered set is one setup signed by several
+               parties — i.e. the user looked up a hash and it carries
+               multiple (counter)signatures. A strong endorsement signal. */
+            function renderCosignBanner(list) {
+                const el = document.getElementById("cosign");
+                if (!el) return;
+                const hashes = new Set(list.map((s) => s.hash));
+                if (hashes.size !== 1 || list.length < 2) {
+                    el.style.display = "none";
+                    el.innerHTML = "";
+                    return;
+                }
+                const total = list.length;
+                const distinctKeys = new Set(
+                    list.filter((s) => s.public_key).map((s) => s.public_key),
+                ).size;
+                const hmacCount = list.filter((s) => !s.public_key).length;
+
+                const parts = [];
+                if (distinctKeys)
+                    parts.push(
+                        "<b>" +
+                            distinctKeys +
+                            "</b> distinct key" +
+                            (distinctKeys === 1 ? "" : "s"),
+                    );
+                if (hmacCount)
+                    parts.push(
+                        "<b>" +
+                            hmacCount +
+                            "</b> HMAC attestation" +
+                            (hmacCount === 1 ? "" : "s"),
+                    );
+                const from = parts.length ? " from " + parts.join(" + ") : "";
+
+                el.innerHTML =
+                    '<span class="ic">🔗</span><span>This setup carries <b>' +
+                    total +
+                    "</b> signatures" +
+                    from +
+                    ".<span class=\"sub\">Independent signatures on the same hash reinforce trust — each line below is a separate endorsement.</span></span>";
+                el.style.display = "flex";
             }
 
             /* ===== Rendering ===== */
@@ -1018,6 +1689,8 @@
                 const startIdx = append ? rows.children.length : 0;
                 document.getElementById("count").textContent =
                     totalCount + " " + (totalCount === 1 ? "entry" : "entries");
+
+                if (!append) renderCosignBanner(list);
 
                 if (!list.length && !append) {
                     rows.innerHTML =
@@ -1028,21 +1701,20 @@
                 const html = list
                     .map((s, i) => {
                         const idx = startIdx + i;
-                        const statusClass = getStatus(s);
-                        const statusLabel = getStatusLabel(s);
+                        const init = initialStatus(s);
                         return (
                             '<div class="row" data-i="' +
                             idx +
                             '" style="animation-delay:' +
                             i * 55 +
                             'ms">' +
-                            fpSVG(s.hash) +
+                            fpSVG(s.public_key || s.hash) +
                             '<div style="min-width:0">' +
                             '<div class="hash">' +
                             shortenHash(s.hash) +
                             "</div>" +
                             '<div class="agent">' +
-                            esc(getAlgorithm(s)) +
+                            esc(rowSubtitle(s)) +
                             "</div>" +
                             "</div>" +
                             '<div class="signer">' +
@@ -1052,9 +1724,9 @@
                             esc(relativeTime(s.signed_at)) +
                             "</div>" +
                             '<div><span class="badge ' +
-                            statusClass +
+                            init.cls +
                             '">' +
-                            statusLabel +
+                            init.label +
                             "</span></div>" +
                             detailHTML(s) +
                             "</div>"
@@ -1067,6 +1739,19 @@
                 } else {
                     rows.innerHTML = html;
                 }
+
+                /* attach each record to its rendered row, then verify in place */
+                const allRows = rows.querySelectorAll(".row");
+                const newRows = append
+                    ? Array.prototype.slice.call(
+                          allRows,
+                          allRows.length - list.length,
+                      )
+                    : Array.prototype.slice.call(allRows);
+                newRows.forEach((el, i) => {
+                    el._sig = list[i];
+                });
+                verifyVisible(newRows);
             }
 
             function updateStats(sigs) {

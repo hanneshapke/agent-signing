@@ -31,6 +31,27 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
 from cryptography.hazmat.primitives import serialization
 
 
+def aggregate_hash(components: list[dict[str, Any]]) -> str:
+    """Compute the order-independent aggregate hash of a component list.
+
+    Each component is hashed individually (canonical JSON, sorted keys), the
+    per-component digests are sorted, then concatenated and hashed again.  This
+    is the value an Ed25519/HMAC signature is computed over, so a verifier that
+    is given the components can recompute this and confirm it matches the
+    signed hash — proving *which* tools and agents were signed.
+    """
+    component_hashes = sorted(
+        hashlib.sha256(
+            json.dumps(c, sort_keys=True, default=str).encode()
+        ).hexdigest()
+        for c in components
+    )
+    h = hashlib.sha256()
+    for ch in component_hashes:
+        h.update(ch.encode())
+    return h.hexdigest()
+
+
 def generate_keypair() -> tuple[bytes, bytes]:
     """Generate an Ed25519 key pair.
 
@@ -110,12 +131,21 @@ class AgentSigner:
         private_key: bytes | None = None,
         public_key: bytes | None = None,
         identity_token: str | None = None,
+        name: str | None = None,
+        email: str | None = None,
     ) -> None:
         self._secret = secret.encode() if secret else None
         self._private_key = private_key
         self._public_key = public_key
         self._identity_token = identity_token
+        self._name = name
+        self._email = email
         self._components: list[dict[str, Any]] = []
+
+    @property
+    def components(self) -> list[dict[str, Any]]:
+        """The extracted tool/agent components that get signed."""
+        return list(self._components)
 
     # ------------------------------------------------------------------
     # Public API
@@ -173,42 +203,64 @@ class AgentSigner:
 
         return signature
 
-    def sign_to_file(self, path: str | Path) -> str:
+    def _public_key_hex(self) -> str | None:
+        """Hex-encoded public key, derived from the private or public key."""
+        if self._private_key:
+            key = Ed25519PrivateKey.from_private_bytes(self._private_key)
+            return key.public_key().public_bytes(
+                serialization.Encoding.Raw,
+                serialization.PublicFormat.Raw,
+            ).hex()
+        if self._public_key:
+            return self._public_key.hex()
+        return None
+
+    def _build_record(self, include_components: bool = False) -> dict[str, Any]:
+        """Assemble a publishable signature record.
+
+        Always includes ``signed_at``, ``public_key``, ``hash`` and
+        ``signature``.  Optional self-declared ``name``/``email`` are added when
+        set, and the signed ``components`` when ``include_components`` is True so
+        the registry can re-derive the hash and surface a verified tool/agent
+        summary.
+        """
+        record: dict[str, Any] = {
+            "signed_at": datetime.now(timezone.utc).isoformat(),
+            "public_key": self._public_key_hex(),
+            "hash": self._compute_aggregate(),
+            "signature": self.sign(),
+        }
+        if self._name:
+            record["name"] = self._name
+        if self._email:
+            record["email"] = self._email
+        if include_components:
+            record["components"] = self._components
+        return record
+
+    def sign_to_file(self, path: str | Path, include_components: bool = False) -> str:
         """Sign and write the result to a JSON file.
 
         The file contains the signature, the aggregate hash, the signing
         timestamp (ISO 8601 / UTC), and — when Ed25519 is used — the
-        hex-encoded public key so a verifier knows *who* signed.
+        hex-encoded public key so a verifier knows *who* signed.  Optional
+        self-declared name/email are included when set, and the signed
+        components when ``include_components`` is True.
 
         Returns
         -------
         str
             The raw signature string (same value as ``sign()``).
         """
-        signature = self.sign()
-        public_key_hex = None
-        if self._private_key:
-            key = Ed25519PrivateKey.from_private_bytes(self._private_key)
-            public_key_hex = key.public_key().public_bytes(
-                serialization.Encoding.Raw,
-                serialization.PublicFormat.Raw,
-            ).hex()
-        elif self._public_key:
-            public_key_hex = self._public_key.hex()
-
-        record: dict[str, Any] = {
-            "signed_at": datetime.now(timezone.utc).isoformat(),
-            "public_key": public_key_hex,
-            "hash": self._compute_aggregate(),
-            "signature": signature,
-        }
+        record = self._build_record(include_components=include_components)
         Path(path).write_text(json.dumps(record, indent=2) + "\n")
-        return signature
+        return record["signature"]
 
     def publish(
         self,
         registry_url: str,
         path: str | Path | None = None,
+        include_components: bool = False,
     ) -> dict[str, Any]:
         """Publish a signature record to a registry server.
 
@@ -219,6 +271,9 @@ class AgentSigner:
         path : str | Path | None
             Path to a signature file to read and publish.  If not given,
             signs on-the-fly and builds the record automatically.
+        include_components : bool
+            When signing on-the-fly, include the signed components so the
+            registry can verify and summarise them.
 
         Returns
         -------
@@ -238,22 +293,7 @@ class AgentSigner:
         if path is not None:
             record = self.load_signature_file(path)
         else:
-            signature = self.sign()
-            public_key_hex = None
-            if self._private_key:
-                key = Ed25519PrivateKey.from_private_bytes(self._private_key)
-                public_key_hex = key.public_key().public_bytes(
-                    serialization.Encoding.Raw,
-                    serialization.PublicFormat.Raw,
-                ).hex()
-            elif self._public_key:
-                public_key_hex = self._public_key.hex()
-            record = {
-                "signed_at": datetime.now(timezone.utc).isoformat(),
-                "public_key": public_key_hex,
-                "hash": self._compute_aggregate(),
-                "signature": signature,
-            }
+            record = self._build_record(include_components=include_components)
 
         url = registry_url.rstrip("/") + "/signatures"
         data = json.dumps(record).encode()
@@ -388,16 +428,7 @@ class AgentSigner:
 
     def _compute_aggregate(self) -> str:
         """Compute the order-independent aggregate hash of all components."""
-        component_hashes = sorted(
-            hashlib.sha256(
-                json.dumps(c, sort_keys=True, default=str).encode()
-            ).hexdigest()
-            for c in self._components
-        )
-        h = hashlib.sha256()
-        for ch in component_hashes:
-            h.update(ch.encode())
-        return h.hexdigest()
+        return aggregate_hash(self._components)
 
     def _compute_signature_value(self, aggregate: str) -> str:
         """Produce HMAC or plain aggregate (for non-Ed25519 modes)."""
