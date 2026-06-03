@@ -5,10 +5,13 @@ name: Bump version
 # CHANGELOG, commits, tags (vX.Y.Z) and creates a GitHub Release. The
 # published release triggers release.yml which builds and publishes to PyPI.
 #
-# For the published Release to trigger release.yml, the steps below must
-# authenticate with a Personal Access Token stored as the PERSONAL_ACCESS_TOKEN
-# secret (events created with the default GITHUB_TOKEN do not start new runs).
-# Without it the bump still works, but you must publish the release manually.
+# For the published Release to trigger release.yml, the steps below
+# authenticate as a GitHub App rather than with the default GITHUB_TOKEN
+# (events created with GITHUB_TOKEN do not start new workflow runs). Create a
+# GitHub App with "Contents: read & write" permission, install it on this
+# repo, then store its App ID as the CZ_APP_ID repository variable and its
+# private key as the CZ_APP_PRIVATE_KEY secret. If they are not set the bump
+# still works via GITHUB_TOKEN, but you must publish the release manually.
 
 on:
   push:
@@ -29,17 +32,25 @@ jobs:
     if: "!startsWith(github.event.head_commit.message, 'bump:')"
 
     steps:
+      - name: Generate GitHub App token
+        id: app-token
+        if: ${{ vars.CZ_APP_ID != '' }}
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        with:
+          app-id: ${{ vars.CZ_APP_ID }}
+          private-key: ${{ secrets.CZ_APP_PRIVATE_KEY }}
+
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
-          token: ${{ secrets.PERSONAL_ACCESS_TOKEN || secrets.GITHUB_TOKEN }}
+          token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
 
       - name: Create bump and changelog
         id: cz
         uses: commitizen-tools/commitizen-action@338bbd841b75aaee6bf5340e1fa12f6ab58ff9ff # 0.27.1
         with:
-          github_token: ${{ secrets.PERSONAL_ACCESS_TOKEN || secrets.GITHUB_TOKEN }}
+          github_token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
           changelog_increment_filename: _changelog_increment.md
           push: true
           commit: true
@@ -48,7 +59,7 @@ jobs:
       - name: Create GitHub Release
         if: steps.cz.outputs.version != ''
         env:
-          GH_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
         run: |
           gh release create "v${{ steps.cz.outputs.version }}" \
             --title "v${{ steps.cz.outputs.version }}" \
