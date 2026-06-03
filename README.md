@@ -445,6 +445,12 @@ Supports `bool()` -- use `if result:` directly.
 
 Returns `(private_key, public_key)` as raw 32-byte Ed25519 keys.
 
+## Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the local
+development workflow -- linting with `ruff`, testing with `pytest`, commit
+conventions, and the commitizen tag-driven release process.
+
 ## License
 
 [Apache 2.0](LICENSE)
