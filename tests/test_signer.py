@@ -621,9 +621,7 @@ class TestRegistryFetch:
         import urllib.request
 
         def fake_urlopen(req, timeout=None):
-            raise urllib.error.HTTPError(
-                req.full_url, 500, "Server Error", {}, io.BytesIO(b"boom")
-            )
+            raise urllib.error.HTTPError(req.full_url, 500, "Server Error", {}, io.BytesIO(b"boom"))
 
         monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
 

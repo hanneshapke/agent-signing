@@ -74,8 +74,7 @@ def _build_parser() -> argparse.ArgumentParser:
     sign_p.add_argument(
         "--include-components",
         action="store_true",
-        help="Embed the signed tool/agent components so a registry can verify "
-        "and display them.",
+        help="Embed the signed tool/agent components so a registry can verify and display them.",
     )
 
     # --- verify ---
