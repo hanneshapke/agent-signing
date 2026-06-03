@@ -25,7 +25,13 @@ classifiers = [
 dev = ["pytest", "ruff", "fastapi-cloud-cli"]
 demo-langchain = ["langchain", "langchain-core", "langchain-openai", "langgraph"]
 demo-crewai = ["crewai"]
-server = ["fastapi>=0.100", "uvicorn[standard]>=0.20"]
+server = [
+    "fastapi>=0.100",
+    "uvicorn[standard]>=0.20",
+    "authlib>=1.3",
+    "itsdangerous>=2.0",
+    "httpx>=0.24",
+]
 
 [tool.setuptools]
 packages = ["agent_signing", "server", "server.backend"]
