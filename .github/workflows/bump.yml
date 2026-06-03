@@ -1,35 +1,40 @@
-name: Bump version
+name: Release on tag
 
-# Runs commitizen on every push to main. Based on the Conventional Commits
-# since the last tag it bumps the version in pyproject.toml, updates the
-# CHANGELOG, commits, tags (vX.Y.Z) and creates a GitHub Release. The
-# published release triggers release.yml which builds and publishes to PyPI.
+# Triggered when a version tag (vX.Y.Z) is pushed. The version bump itself is
+# performed by commitizen *locally* by the maintainer, who then pushes the
+# resulting commit and tag together:
 #
-# For the published Release to trigger release.yml, the steps below
-# authenticate as a GitHub App rather than with the default GITHUB_TOKEN
-# (events created with GITHUB_TOKEN do not start new workflow runs). Create a
-# GitHub App with "Contents: read & write" permission, install it on this
-# repo, then store its App ID as the CZ_APP_ID repository variable and its
-# private key as the CZ_APP_PRIVATE_KEY secret. If they are not set the bump
-# still works via GITHUB_TOKEN, but you must publish the release manually.
+#     cz bump            # bumps pyproject.toml, updates CHANGELOG, creates tag
+#     git push --follow-tags
+#
+# On that tag push this workflow extracts the changelog section for the tag and
+# creates a GitHub Release. The published Release triggers release.yml, which
+# builds and publishes the package to PyPI.
+#
+# It authenticates as a GitHub App so the Release it creates starts release.yml
+# (events created with the default GITHUB_TOKEN do not start new workflow runs).
+# Create a GitHub App with "Contents: read & write", install it on this repo,
+# then store its App ID as the CZ_APP_ID repository variable and its private key
+# as the CZ_APP_PRIVATE_KEY secret. Without them the Release is still created
+# via GITHUB_TOKEN, but you must publish it manually to trigger release.yml.
 
 on:
   push:
-    branches: [main]
+    tags:
+      - "v*"
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: bump-${{ github.ref }}
+  group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  bump:
+  release:
     runs-on: ubuntu-latest
-    name: Commitizen bump
-    if: "!startsWith(github.event.head_commit.message, 'bump:')"
+    name: Create GitHub Release
 
     steps:
       - name: Generate GitHub App token
@@ -46,21 +51,23 @@ jobs:
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
 
-      - name: Create bump and changelog
-        id: cz
-        uses: commitizen-tools/commitizen-action@338bbd841b75aaee6bf5340e1fa12f6ab58ff9ff # 0.27.1
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
-          github_token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
-          changelog_increment_filename: _changelog_increment.md
-          push: true
-          commit: true
-          changelog: true
+          enable-cache: true
+
+      - name: Extract changelog for tag
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          uvx --from commitizen cz changelog "$version" --dry-run > _changelog_increment.md || true
+          if [ ! -s _changelog_increment.md ]; then
+            echo "Release ${GITHUB_REF_NAME}" > _changelog_increment.md
+          fi
 
       - name: Create GitHub Release
-        if: steps.cz.outputs.version != ''
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "v${{ steps.cz.outputs.version }}" \
-            --title "v${{ steps.cz.outputs.version }}" \
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
             --notes-file _changelog_increment.md
