@@ -15,8 +15,17 @@ def _make_jwt(claims: dict) -> str:
 
 
 TOOL_SEARCH = {"name": "search", "description": "Search the web", "parameters": {"query": "str"}}
-TOOL_CALC = {"name": "calculator", "description": "Evaluate math", "parameters": {"expression": "str"}}
-AGENT_RESEARCHER = {"name": "researcher", "role": "Researcher", "goal": "Find info", "tools": ["search"]}
+TOOL_CALC = {
+    "name": "calculator",
+    "description": "Evaluate math",
+    "parameters": {"expression": "str"},
+}
+AGENT_RESEARCHER = {
+    "name": "researcher",
+    "role": "Researcher",
+    "goal": "Find info",
+    "tools": ["search"],
+}
 
 
 class TestSigning:

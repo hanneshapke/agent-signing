@@ -189,10 +189,14 @@ class AgentSigner:
         public_key_hex = None
         if self._private_key:
             key = Ed25519PrivateKey.from_private_bytes(self._private_key)
-            public_key_hex = key.public_key().public_bytes(
-                serialization.Encoding.Raw,
-                serialization.PublicFormat.Raw,
-            ).hex()
+            public_key_hex = (
+                key.public_key()
+                .public_bytes(
+                    serialization.Encoding.Raw,
+                    serialization.PublicFormat.Raw,
+                )
+                .hex()
+            )
         elif self._public_key:
             public_key_hex = self._public_key.hex()
 
@@ -242,10 +246,14 @@ class AgentSigner:
             public_key_hex = None
             if self._private_key:
                 key = Ed25519PrivateKey.from_private_bytes(self._private_key)
-                public_key_hex = key.public_key().public_bytes(
-                    serialization.Encoding.Raw,
-                    serialization.PublicFormat.Raw,
-                ).hex()
+                public_key_hex = (
+                    key.public_key()
+                    .public_bytes(
+                        serialization.Encoding.Raw,
+                        serialization.PublicFormat.Raw,
+                    )
+                    .hex()
+                )
             elif self._public_key:
                 public_key_hex = self._public_key.hex()
             record = {
@@ -271,13 +279,9 @@ class AgentSigner:
                 return json.loads(resp.read().decode())
         except urllib.error.HTTPError as exc:
             body = exc.read().decode() if exc.fp else ""
-            raise ValueError(
-                f"Registry rejected submission ({exc.code}): {body}"
-            ) from exc
+            raise ValueError(f"Registry rejected submission ({exc.code}): {body}") from exc
         except urllib.error.URLError as exc:
-            raise ConnectionError(
-                f"Cannot reach registry at {registry_url}: {exc.reason}"
-            ) from exc
+            raise ConnectionError(f"Cannot reach registry at {registry_url}: {exc.reason}") from exc
 
     @staticmethod
     def load_signature_file(path: str | Path) -> dict[str, Any]:
@@ -318,7 +322,9 @@ class AgentSigner:
         current = self._compute_signature_value(aggregate)
         if hmac.compare_digest(current, signature):
             return VerificationResult(valid=True, reason="Signature valid.")
-        return VerificationResult(valid=False, reason="Signature mismatch — agent setup has changed.")
+        return VerificationResult(
+            valid=False, reason="Signature mismatch — agent setup has changed."
+        )
 
     # ------------------------------------------------------------------
     # Extraction — duck-typed framework detection
@@ -389,9 +395,7 @@ class AgentSigner:
     def _compute_aggregate(self) -> str:
         """Compute the order-independent aggregate hash of all components."""
         component_hashes = sorted(
-            hashlib.sha256(
-                json.dumps(c, sort_keys=True, default=str).encode()
-            ).hexdigest()
+            hashlib.sha256(json.dumps(c, sort_keys=True, default=str).encode()).hexdigest()
             for c in self._components
         )
         h = hashlib.sha256()

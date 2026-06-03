@@ -38,3 +38,17 @@ Homepage = "https://github.com/hanneshapke/agent-signing"
 
 [tool.fastapi]
 entrypoint = "server.backend.main:app"
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "v$version"
+version_provider = "pep621"
+version_scheme = "pep440"
+update_changelog_on_bump = true
+major_version_zero = true
+
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
