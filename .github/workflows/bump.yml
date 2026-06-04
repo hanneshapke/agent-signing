@@ -14,9 +14,11 @@ name: Release on tag
 # It authenticates as a GitHub App so the Release it creates starts release.yml
 # (events created with the default GITHUB_TOKEN do not start new workflow runs).
 # Create a GitHub App with "Contents: read & write", install it on this repo,
-# then store its App ID as the CZ_APP_ID repository variable and its private key
-# as the CZ_APP_PRIVATE_KEY secret. Without them the Release is still created
-# via GITHUB_TOKEN, but you must publish it manually to trigger release.yml.
+# then in the "Release Environment" environment store its App ID as the
+# CZ_APP_ID variable and its private key as the CZ_APP_PRIVATE_KEY secret (the
+# release job targets that environment). Without them the Release is still
+# created via GITHUB_TOKEN, but you must publish it manually to trigger
+# release.yml.
 
 on:
   push:
@@ -35,6 +37,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     name: Create GitHub Release
+    environment: Release Environment
 
     steps:
       - name: Generate GitHub App token

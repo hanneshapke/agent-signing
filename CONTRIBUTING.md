@@ -115,5 +115,6 @@ From there CI takes over:
 - **GitHub App** -- so the Release created by CI triggers the PyPI publish
   (Releases created with the default `GITHUB_TOKEN` do not start new workflow
   runs). Create a GitHub App with `Contents: read & write`, install it on this
-  repo, then store its App ID as the `CZ_APP_ID` repository variable and its
-  private key as the `CZ_APP_PRIVATE_KEY` secret.
+  repo, then -- in the `Release Environment` environment -- store its App ID as
+  the `CZ_APP_ID` variable and its private key as the `CZ_APP_PRIVATE_KEY`
+  secret. The release job in `bump.yml` targets that environment.
