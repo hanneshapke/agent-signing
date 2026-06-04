@@ -475,16 +475,20 @@
                 white-space: pre;
             }
 
-            .step-code .kw {
+            .step-code .kw,
+            .code-body .kw {
                 color: var(--rust-light);
             }
-            .step-code .fn {
+            .step-code .fn,
+            .code-body .fn {
                 color: var(--sage-light);
             }
-            .step-code .st {
+            .step-code .st,
+            .code-body .st {
                 color: #d4a574;
             }
-            .step-code .cm {
+            .step-code .cm,
+            .code-body .cm {
                 color: rgba(244, 241, 235, 0.35);
             }
 
@@ -1050,18 +1054,19 @@
                         preferred signing mode — HMAC, Ed25519 keypair, or JWT
                         identity.
                     </p>
-                    <div class="step-code">
-                        <span class="cm"># Install</span>
-                        pip install agent-signing
+                    <!-- prettier-ignore -->
+                    <div class="step-code"><span class="cm"># Install</span>
+pip install agent-signing
 
-                        <span class="cm"># Initialize with a keypair</span>
-                        <span class="kw">from</span> agent_signing
-                        <span class="kw">import</span> ( AgentSigner,
-                        generate_keypair ) private_key, public_key =
-                        <span class="fn">generate_keypair</span>() signer =
-                        <span class="fn">AgentSigner</span>(
-                        private_key=private_key )
-                    </div>
+<span class="cm"># Initialize with a keypair</span>
+<span class="kw">from</span> agent_signing <span class="kw">import</span> (
+    AgentSigner, generate_keypair
+)
+
+private_key, public_key = <span class="fn">generate_keypair</span>()
+signer = <span class="fn">AgentSigner</span>(
+    private_key=private_key
+)</div>
                 </div>
                 <div class="step reveal">
                     <div class="step-num">02</div>
@@ -1071,26 +1076,20 @@
                         objects directly or use plain dictionaries — metadata is
                         extracted automatically.
                     </p>
-                    <div class="step-code">
-                        <span class="cm"># Add framework tools directly</span>
-                        signer.<span class="fn">add_tool</span>(search_tool)
-                        signer.<span class="fn">add_tool</span>(calculator_tool)
+                    <!-- prettier-ignore -->
+                    <div class="step-code"><span class="cm"># Add framework tools directly</span>
+signer.<span class="fn">add_tool</span>(search_tool)
+signer.<span class="fn">add_tool</span>(calculator_tool)
 
-                        <span class="cm"
-                            ># Or add agents (auto-discovers tools)</span
-                        >
-                        signer.<span class="fn">add_agent</span>(react_agent)
+<span class="cm"># Or add agents (auto-discovers tools)</span>
+signer.<span class="fn">add_agent</span>(react_agent)
 
-                        <span class="cm"># Or use plain dicts</span>
-                        signer.<span class="fn">add_tool</span>({
-                        <span class="st">"name"</span>:
-                        <span class="st">"search"</span>,
-                        <span class="st">"description"</span>:
-                        <span class="st">"Search the web"</span>,
-                        <span class="st">"parameters"</span>: {<span class="st"
-                            >"query"</span
-                        >: <span class="st">"str"</span>} })
-                    </div>
+<span class="cm"># Or use plain dicts</span>
+signer.<span class="fn">add_tool</span>({
+    <span class="st">"name"</span>: <span class="st">"search"</span>,
+    <span class="st">"description"</span>: <span class="st">"Search the web"</span>,
+    <span class="st">"parameters"</span>: {<span class="st">"query"</span>: <span class="st">"str"</span>}
+})</div>
                 </div>
                 <div class="step reveal">
                     <div class="step-num">03</div>
@@ -1099,19 +1098,17 @@
                         Generate a signature, write it to a file, and optionally
                         publish to a shared registry for team-wide verification.
                     </p>
-                    <div class="step-code">
-                        <span class="cm"># Sign to a file</span> signer.<span
-                            class="fn"
-                            >sign_to_file</span
-                        >(
-                        <span class="st">"agent_signature.json"</span>
-                        )
+                    <!-- prettier-ignore -->
+                    <div class="step-code"><span class="cm"># Sign to a file</span>
+signer.<span class="fn">sign_to_file</span>(
+    <span class="st">"agent_signature.json"</span>
+)
 
-                        <span class="cm"># Publish to a shared registry</span>
-                        signer.<span class="fn">publish</span>(
-                        <span class="st">"http://registry:8000"</span>,
-                        path=<span class="st">"agent_signature.json"</span> )
-                    </div>
+<span class="cm"># Publish to a shared registry</span>
+signer.<span class="fn">publish</span>(
+    <span class="st">"http://registry:8000"</span>,
+    path=<span class="st">"agent_signature.json"</span>
+)</div>
                 </div>
             </div>
         </section>
@@ -1168,46 +1165,30 @@
                         <span class="code-dot g"></span>
                         <span style="margin-left: 0.5rem">verify.py</span>
                     </div>
-                    <div class="code-body">
-                        <span class="kw">from</span> agent_signing
-                        <span class="kw">import</span> AgentSigner
+                    <!-- prettier-ignore -->
+                    <div class="code-body"><span class="kw">from</span> agent_signing <span class="kw">import</span> AgentSigner
 
-                        <span class="cm"
-                            ># Rebuild the same setup on any machine</span
-                        >
-                        verifier =
-                        <span class="fn">AgentSigner</span
-                        >(public_key=public_key) verifier.<span class="fn"
-                            >add_tool</span
-                        >(search_tool) verifier.<span class="fn">add_tool</span
-                        >(calculator_tool)
+<span class="cm"># Rebuild the same setup on any machine</span>
+verifier = <span class="fn">AgentSigner</span>(public_key=public_key)
+verifier.<span class="fn">add_tool</span>(search_tool)
+verifier.<span class="fn">add_tool</span>(calculator_tool)
 
-                        <span class="cm"
-                            ># Verify against the signature file</span
-                        >
-                        result = verifier.<span class="fn">verify_file</span>(
-                        <span class="st">"agent_signature.json"</span>
-                        )
+<span class="cm"># Verify against the signature file</span>
+result = verifier.<span class="fn">verify_file</span>(
+    <span class="st">"agent_signature.json"</span>
+)
 
-                        <span class="kw">if</span> result.valid: print(<span
-                            class="st"
-                            >"&#10003; Configuration verified"</span
-                        >) print(f<span class="st"
-                            >" Signed by: {result.identity}"</span
-                        >) <span class="kw">else</span>: print(f<span class="st"
-                            >"&#10007; {result.reason}"</span
-                        >)
+<span class="kw">if</span> result.valid:
+    print(<span class="st">"&#10003; Configuration verified"</span>)
+    print(f<span class="st">"  Signed by: {result.identity}"</span>)
+<span class="kw">else</span>:
+    print(f<span class="st">"&#10007; {result.reason}"</span>)
 
-                        <span class="cm"
-                            ># Or fetch the approved signature</span
-                        >
-                        <span class="cm"># straight from the registry</span>
-                        result = verifier.<span class="fn"
-                            >verify_from_registry</span
-                        >(
-                        <span class="st">"http://registry:8000"</span>
-                        )
-                    </div>
+<span class="cm"># Or fetch the approved signature</span>
+<span class="cm"># straight from the registry</span>
+result = verifier.<span class="fn">verify_from_registry</span>(
+    <span class="st">"http://registry:8000"</span>
+)</div>
                 </div>
             </div>
         </section>
